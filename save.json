@@ -1,0 +1,465 @@
+{
+  "player": {
+    "name": "Hero",
+    "level": 2,
+    "xp": 112,
+    "gold": 88,
+    "max_hp": 27,
+    "hp": 27,
+    "max_mp": 10,
+    "mp": 2,
+    "attack": 6,
+    "defense": 3,
+    "potions": 0,
+    "known_spells": [
+      "Firebolt"
+    ],
+    "weapon": {
+      "name": "Wooden Sword",
+      "attack_bonus": 2
+    },
+    "armor": {
+      "name": "Cloth Armor",
+      "defense_bonus": 1
+    }
+  },
+  "world": {
+    "width": 7,
+    "height": 7,
+    "seed": 9842212,
+    "grid": [
+      [
+        {
+          "name": "Shattered Obelisk",
+          "description": "A broken monument radiates strange energy.",
+          "danger": 0.8,
+          "safe": false,
+          "ascii": "shattered_obelisk.txt",
+          "shop": false
+        },
+        {
+          "name": "Ruined Keep",
+          "description": "Broken walls hide shadows and secrets.",
+          "danger": 0.8,
+          "safe": false,
+          "ascii": "ruined_keep.txt",
+          "shop": false
+        },
+        {
+          "name": "Emberfall",
+          "description": "A waterfall glows faintly with molten sparks.",
+          "danger": 0.8,
+          "safe": false,
+          "ascii": "emberfall.txt",
+          "shop": false
+        },
+        {
+          "name": "Ironfang Pass",
+          "description": "Jagged cliffs loom over a narrow, treacherous trail.",
+          "danger": 0.8,
+          "safe": false,
+          "ascii": "ironfang_pass.txt",
+          "shop": false
+        },
+        {
+          "name": "Shattered Obelisk",
+          "description": "A broken monument radiates strange energy.",
+          "danger": 0.8,
+          "safe": false,
+          "ascii": "shattered_obelisk.txt",
+          "shop": false
+        },
+        {
+          "name": "Emberfall",
+          "description": "A waterfall glows faintly with molten sparks.",
+          "danger": 0.8,
+          "safe": false,
+          "ascii": "emberfall.txt",
+          "shop": false
+        },
+        {
+          "name": "Mire Flats",
+          "description": "Boggy ground that sucks at your boots.",
+          "danger": 0.75,
+          "safe": false,
+          "ascii": "mire_flats.txt",
+          "shop": false
+        }
+      ],
+      [
+        {
+          "name": "Ironfang Pass",
+          "description": "Jagged cliffs loom over a narrow, treacherous trail.",
+          "danger": 0.8,
+          "safe": false,
+          "ascii": "ironfang_pass.txt",
+          "shop": false
+        },
+        {
+          "name": "Northern Ridge",
+          "description": "Wind-swept ridge with sparse pines.",
+          "danger": 0.55,
+          "safe": false,
+          "ascii": "northern_ridge.txt",
+          "shop": false
+        },
+        {
+          "name": "Ruined Keep",
+          "description": "Broken walls hide shadows and secrets.",
+          "danger": 0.75,
+          "safe": false,
+          "ascii": "ruined_keep.txt",
+          "shop": false
+        },
+        {
+          "name": "Gloomwood",
+          "description": "Dark trees crowd the path. Eyes watch.",
+          "danger": 0.65,
+          "safe": false,
+          "ascii": "gloomwood.txt",
+          "shop": false
+        },
+        {
+          "name": "Merchant's Caravan",
+          "description": "A traveling merchant offers wares and wisdom.",
+          "danger": 0.0,
+          "safe": true,
+          "ascii": "mire_flats.txt",
+          "shop": true
+        },
+        {
+          "name": "Ashen Hollow",
+          "description": "Charred earth and skeletal trees whisper of old fires.",
+          "danger": 0.8,
+          "safe": false,
+          "ascii": "ashen_hollow.txt",
+          "shop": false
+        },
+        {
+          "name": "Ruined Keep",
+          "description": "Broken walls hide shadows and secrets.",
+          "danger": 0.8,
+          "safe": false,
+          "ascii": "ruined_keep.txt",
+          "shop": false
+        }
+      ],
+      [
+        {
+          "name": "Northern Ridge",
+          "description": "Wind-swept ridge with sparse pines.",
+          "danger": 0.55,
+          "safe": false,
+          "ascii": "northern_ridge.txt",
+          "shop": false
+        },
+        {
+          "name": "Northern Ridge",
+          "description": "Wind-swept ridge with sparse pines.",
+          "danger": 0.5,
+          "safe": false,
+          "ascii": "northern_ridge.txt",
+          "shop": false
+        },
+        {
+          "name": "Gloomwood",
+          "description": "Dark trees crowd the path. Eyes watch.",
+          "danger": 0.65,
+          "safe": false,
+          "ascii": "gloomwood.txt",
+          "shop": false
+        },
+        {
+          "name": "Sunken Ruins",
+          "description": "Ancient stonework drowned beneath stagnant waters.",
+          "danger": 0.6000000000000001,
+          "safe": false,
+          "ascii": "sunken_ruins.txt",
+          "shop": false
+        },
+        {
+          "name": "Eastgate Road",
+          "description": "A cobbled road lined with old mileposts.",
+          "danger": 0.35,
+          "safe": false,
+          "ascii": "eastgate_road.txt",
+          "shop": false
+        },
+        {
+          "name": "Frost Creek",
+          "description": "Icy water murmurs over smooth stones.",
+          "danger": 0.5,
+          "safe": false,
+          "ascii": "frost_creek.txt",
+          "shop": false
+        },
+        {
+          "name": "Gloomwood",
+          "description": "Dark trees crowd the path. Eyes watch.",
+          "danger": 0.75,
+          "safe": false,
+          "ascii": "gloomwood.txt",
+          "shop": false
+        }
+      ],
+      [
+        {
+          "name": "Merchant's Caravan",
+          "description": "A traveling merchant offers wares and wisdom.",
+          "danger": 0.0,
+          "safe": true,
+          "ascii": "gloomwood.txt",
+          "shop": true
+        },
+        {
+          "name": "Eastgate Road",
+          "description": "A cobbled road lined with old mileposts.",
+          "danger": 0.35,
+          "safe": false,
+          "ascii": "eastgate_road.txt",
+          "shop": false
+        },
+        {
+          "name": "Whispering Gorge",
+          "description": "Wind howls through the canyon like ghostly voices.",
+          "danger": 0.55,
+          "safe": false,
+          "ascii": "whispering_gorge.txt",
+          "shop": false
+        },
+        {
+          "name": "Oakheart Village",
+          "description": "Your humble village. A safe haven.",
+          "danger": 0.0,
+          "safe": true,
+          "ascii": "oakheart_village.txt",
+          "shop": false
+        },
+        {
+          "name": "Blightmoor",
+          "description": "Rotting vegetation and buzzing flies choke the air.",
+          "danger": 0.65,
+          "safe": false,
+          "ascii": "blightmoor.txt",
+          "shop": false
+        },
+        {
+          "name": "Shattered Obelisk",
+          "description": "A broken monument radiates strange energy.",
+          "danger": 0.8,
+          "safe": false,
+          "ascii": "shattered_obelisk.txt",
+          "shop": false
+        },
+        {
+          "name": "Northern Ridge",
+          "description": "Wind-swept ridge with sparse pines.",
+          "danger": 0.5,
+          "safe": false,
+          "ascii": "northern_ridge.txt",
+          "shop": false
+        }
+      ],
+      [
+        {
+          "name": "Western Farms",
+          "description": "Abandoned fields overrun with weeds.",
+          "danger": 0.4,
+          "safe": false,
+          "ascii": "western_farms.txt",
+          "shop": false
+        },
+        {
+          "name": "Crystal Cavern",
+          "description": "Glittering crystals catch the dim light in eerie hues.",
+          "danger": 0.8,
+          "safe": false,
+          "ascii": "crystal_cavern.txt",
+          "shop": false
+        },
+        {
+          "name": "Ruined Keep",
+          "description": "Broken walls hide shadows and secrets.",
+          "danger": 0.7,
+          "safe": false,
+          "ascii": "ruined_keep.txt",
+          "shop": false
+        },
+        {
+          "name": "Emberfall",
+          "description": "A waterfall glows faintly with molten sparks.",
+          "danger": 0.75,
+          "safe": false,
+          "ascii": "emberfall.txt",
+          "shop": false
+        },
+        {
+          "name": "Mire Flats",
+          "description": "Boggy ground that sucks at your boots.",
+          "danger": 0.55,
+          "safe": false,
+          "ascii": "mire_flats.txt",
+          "shop": false
+        },
+        {
+          "name": "Ruined Keep",
+          "description": "Broken walls hide shadows and secrets.",
+          "danger": 0.75,
+          "safe": false,
+          "ascii": "ruined_keep.txt",
+          "shop": false
+        },
+        {
+          "name": "Ironfang Pass",
+          "description": "Jagged cliffs loom over a narrow, treacherous trail.",
+          "danger": 0.8,
+          "safe": false,
+          "ascii": "ironfang_pass.txt",
+          "shop": false
+        }
+      ],
+      [
+        {
+          "name": "Crystal Cavern",
+          "description": "Glittering crystals catch the dim light in eerie hues.",
+          "danger": 0.8,
+          "safe": false,
+          "ascii": "crystal_cavern.txt",
+          "shop": false
+        },
+        {
+          "name": "Frost Creek",
+          "description": "Icy water murmurs over smooth stones.",
+          "danger": 0.55,
+          "safe": false,
+          "ascii": "frost_creek.txt",
+          "shop": false
+        },
+        {
+          "name": "Gloomwood",
+          "description": "Dark trees crowd the path. Eyes watch.",
+          "danger": 0.7000000000000001,
+          "safe": false,
+          "ascii": "gloomwood.txt",
+          "shop": false
+        },
+        {
+          "name": "Mire Flats",
+          "description": "Boggy ground that sucks at your boots.",
+          "danger": 0.55,
+          "safe": false,
+          "ascii": "mire_flats.txt",
+          "shop": false
+        },
+        {
+          "name": "Old Watchtower",
+          "description": "A crumbling tower watches the valleys.",
+          "danger": 0.45,
+          "safe": false,
+          "ascii": "old_watchtower.txt",
+          "shop": false
+        },
+        {
+          "name": "Ruined Keep",
+          "description": "Broken walls hide shadows and secrets.",
+          "danger": 0.8,
+          "safe": false,
+          "ascii": "ruined_keep.txt",
+          "shop": false
+        },
+        {
+          "name": "Northern Ridge",
+          "description": "Wind-swept ridge with sparse pines.",
+          "danger": 0.6,
+          "safe": false,
+          "ascii": "northern_ridge.txt",
+          "shop": false
+        }
+      ],
+      [
+        {
+          "name": "Frost Creek",
+          "description": "Icy water murmurs over smooth stones.",
+          "danger": 0.65,
+          "safe": false,
+          "ascii": "frost_creek.txt",
+          "shop": false
+        },
+        {
+          "name": "Mire Flats",
+          "description": "Boggy ground that sucks at your boots.",
+          "danger": 0.7,
+          "safe": false,
+          "ascii": "mire_flats.txt",
+          "shop": false
+        },
+        {
+          "name": "Frost Creek",
+          "description": "Icy water murmurs over smooth stones.",
+          "danger": 0.55,
+          "safe": false,
+          "ascii": "frost_creek.txt",
+          "shop": false
+        },
+        {
+          "name": "Shattered Obelisk",
+          "description": "A broken monument radiates strange energy.",
+          "danger": 0.8,
+          "safe": false,
+          "ascii": "shattered_obelisk.txt",
+          "shop": false
+        },
+        {
+          "name": "Frost Creek",
+          "description": "Icy water murmurs over smooth stones.",
+          "danger": 0.55,
+          "safe": false,
+          "ascii": "frost_creek.txt",
+          "shop": false
+        },
+        {
+          "name": "Northern Ridge",
+          "description": "Wind-swept ridge with sparse pines.",
+          "danger": 0.6,
+          "safe": false,
+          "ascii": "northern_ridge.txt",
+          "shop": false
+        },
+        {
+          "name": "Old Watchtower",
+          "description": "A crumbling tower watches the valleys.",
+          "danger": 0.6000000000000001,
+          "safe": false,
+          "ascii": "old_watchtower.txt",
+          "shop": false
+        }
+      ]
+    ]
+  },
+  "pos": {
+    "x": 3,
+    "y": 3
+  },
+  "explored": [
+    [
+      0,
+      3
+    ],
+    [
+      1,
+      3
+    ],
+    [
+      2,
+      3
+    ],
+    [
+      3,
+      3
+    ],
+    [
+      3,
+      4
+    ]
+  ]
+}

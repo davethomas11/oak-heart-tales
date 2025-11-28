@@ -1,0 +1,27 @@
+{
+  "village": {
+    "name": "Oakheart Village",
+    "description": "Your humble village. A safe haven.",
+    "danger": 0.0,
+    "safe": true,
+    "ascii": "oakheart_village.txt"
+  },
+  "tiles": [
+    {"name": "Western Farms", "description": "Abandoned fields overrun with weeds.", "danger": 0.2, "ascii": "western_farms.txt"},
+    {"name": "Old Watchtower", "description": "A crumbling tower watches the valleys.", "danger": 0.3, "ascii": "old_watchtower.txt"},
+    {"name": "Frost Creek", "description": "Icy water murmurs over smooth stones.", "danger": 0.35, "ascii": "frost_creek.txt"},
+    {"name": "Mire Flats", "description": "Boggy ground that sucks at your boots.", "danger": 0.45, "ascii": "mire_flats.txt"},
+    {"name": "Gloomwood", "description": "Dark trees crowd the path. Eyes watch.", "danger": 0.55, "ascii": "gloomwood.txt"},
+    {"name": "Ruined Keep", "description": "Broken walls hide shadows and secrets.", "danger": 0.6, "ascii": "ruined_keep.txt"},
+    {"name": "Northern Ridge", "description": "Wind-swept ridge with sparse pines.", "danger": 0.35, "ascii": "northern_ridge.txt"},
+    {"name": "Eastgate Road", "description": "A cobbled road lined with old mileposts.", "danger": 0.25, "ascii": "eastgate_road.txt"},
+    {"name": "Ashen Hollow", "description": "Charred earth and skeletal trees whisper of old fires.", "danger": 0.65, "ascii": "ashen_hollow.txt"},
+    {"name": "Crystal Cavern", "description": "Glittering crystals catch the dim light in eerie hues.", "danger": 0.7, "ascii": "crystal_cavern.txt"},
+    {"name": "Sunken Ruins", "description": "Ancient stonework drowned beneath stagnant waters.", "danger": 0.55, "ascii": "sunken_ruins.txt"},
+    {"name": "Blightmoor", "description": "Rotting vegetation and buzzing flies choke the air.", "danger": 0.6, "ascii": "blightmoor.txt"},
+    {"name": "Ironfang Pass", "description": "Jagged cliffs loom over a narrow, treacherous trail.", "danger": 0.75, "ascii": "ironfang_pass.txt"},
+    {"name": "Whispering Gorge", "description": "Wind howls through the canyon like ghostly voices.", "danger": 0.5, "ascii": "whispering_gorge.txt"},
+    {"name": "Shattered Obelisk", "description": "A broken monument radiates strange energy.", "danger": 0.8, "ascii": "shattered_obelisk.txt"},
+    {"name": "Emberfall", "description": "A waterfall glows faintly with molten sparks.", "danger": 0.7, "ascii": "emberfall.txt"}
+  ]
+}
