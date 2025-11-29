@@ -12,7 +12,7 @@ from wsgiref.simple_server import make_server
 from urllib.parse import parse_qs
 import secrets
 import html
-from typing import Dict, Tuple, Callable, Optional
+from typing import Dict, Tuple, Callable, Optional, List
 
 from game import Game
 from persistence import save_game, load_game, SAVE_FILE
@@ -118,37 +118,56 @@ def game_view(sid: str, game: Game, last_output: str) -> str:
     escaped = html.escape(last_output)
     stats = game.stats()
     stats_esc = html.escape(stats)
+    actions: List[dict] = game.available_actions()
+
+    # Group actions by category for a tidy layout
+    grouped: Dict[str, List[dict]] = {}
+    for a in actions:
+        grouped.setdefault(a.get("category", "general"), []).append(a)
+
+    # Render action buttons dynamically. Disabled actions are shown but disabled with title.
+    group_html_parts: List[str] = []
+    for cat, lst in grouped.items():
+        btns = []
+        for a in lst:
+            aid = a["id"]
+            label = html.escape(a["label"])  # safe
+            enabled = bool(a.get("enabled", True))
+            reason = html.escape(a.get("reason")) if a.get("reason") else ""
+            attr = "" if enabled else " disabled title=\"" + reason + "\""
+            btns.append(f"<button onclick=\"this.form.cmd.value='{aid}'\" type=\"submit\"{attr}>{label}</button>")
+        group_html_parts.append(
+            f"<div style=\"margin-top:8px\"><div class=\"hint\">{html.escape(cat.capitalize())}</div>" + "\n".join(btns) + "</div>"
+        )
+
+    actions_html = "\n".join(group_html_parts)
+
+    # Add Save/Load controls which are interface-level actions
+    sys_controls = (
+        "<div style=\"margin-top:8px\">"
+        "<div class=\"hint\">System</div>"
+        "<button onclick=\"this.form.cmd.value='__save'\" type=\"submit\">Save</button>"
+        "<button onclick=\"this.form.cmd.value='__load'\" type=\"submit\">Load</button>"
+        "</div>"
+    )
+
     return layout(
         "Oakheart Tales — Play",
         f"""
-        <div class=\"grid\">
-          <div class=\"panel output\">
+        <div class=\"grid\"> 
+          <div class=\"panel output\"> 
             <pre>{escaped}</pre>
           </div>
-          <div class=\"panel\">
+          <div class=\"panel\"> 
             <h3>Actions</h3>
-            <form id=\"cmdform\" method=\"GET\" action=\"/play\">
+            <form id=\"cmdform\" method=\"GET\" action=\"/play\"> 
               <input type=\"hidden\" name=\"sid\" value=\"{sid}\" />
               <input type=\"hidden\" name=\"cmd\" value=\"look\" />
-              <div>
-                <button onclick=\"this.form.cmd.value='n'\" type=\"submit\">North ↑</button>
-                <button onclick=\"this.form.cmd.value='s'\" type=\"submit\">South ↓</button>
-                <button onclick=\"this.form.cmd.value='w'\" type=\"submit\">West ←</button>
-                <button onclick=\"this.form.cmd.value='e'\" type=\"submit\">East →</button>
-              </div>
-              <div style=\"margin-top:8px\">
-                <button onclick=\"this.form.cmd.value='look'\" type=\"submit\">Look</button>
-                <button onclick=\"this.form.cmd.value='map'\" type=\"submit\">Map</button>
-                <button onclick=\"this.form.cmd.value='stats'\" type=\"submit\">Stats</button>
-                <button onclick=\"this.form.cmd.value='rest'\" type=\"submit\">Rest</button>
-                <button onclick=\"this.form.cmd.value='shop'\" type=\"submit\">Shop</button>
-                <button onclick=\"this.form.cmd.value='inv'\" type=\"submit\">Inventory</button>
-                <button onclick=\"this.form.cmd.value='save'\" type=\"submit\">Save</button>
-                <button onclick=\"this.form.cmd.value='load'\" type=\"submit\">Load</button>
-              </div>
+              {actions_html}
+              {sys_controls}
             </form>
           </div>
-          <div class=\"panel\">
+          <div class=\"panel\"> 
             <h3>Character</h3>
             <pre>{stats_esc}</pre>
           </div>
@@ -159,38 +178,22 @@ def game_view(sid: str, game: Game, last_output: str) -> str:
 
 def handle_play(game: Game, cmd: str) -> str:
     cmd = (cmd or "").strip().lower()
-    if cmd in ("n", "north"):
-        return game.move(0, -1)
-    if cmd in ("s", "south"):
-        return game.move(0, 1)
-    if cmd in ("e", "east"):
-        return game.move(1, 0)
-    if cmd in ("w", "west"):
-        return game.move(-1, 0)
-    if cmd in ("look", "l"):
-        return game.look()
-    if cmd in ("map", "m"):
-        return game.map()
-    if cmd in ("stats", "character", "c"):
-        return game.stats()
-    if cmd in ("rest", "r"):
-        return game.rest()
-    if cmd in ("inv", "inventory", "i"):
-        p = game.player
-        return f"Inventory: Potions x{p.potions}; Gold {p.gold}"
-    if cmd in ("shop",):
-        return game.shop()
-    if cmd in ("save",):
-        save_game(game, SAVE_FILE)
+    # Interface-level commands
+    if cmd in ("__save", "save"):
+        save_game(game.to_dict(), SAVE_FILE)
         return f"Game saved to {SAVE_FILE}."
-    if cmd in ("load",):
+    if cmd in ("__load", "load"):
         loaded = load_game(SAVE_FILE)
         if loaded:
-            game.copy_from(loaded)
+            game.copy_from(Game.from_dict(loaded))
             return "Game loaded.\n\n" + game.look()
         return "No save found or save file invalid."
-    # default
-    return "Unknown command."
+
+    # Delegate to game actions API
+    out = game.execute_action(cmd)
+    if out is not None:
+        return out
+    return f"Unknown command: {cmd}"
 
 
 def app(environ, start_response):
@@ -222,7 +225,7 @@ def app(environ, start_response):
         # Non-interactive game for web: auto-resolve prompts and combat
         web_input = (lambda prompt="": "a")
         web_print = (lambda *args, **kwargs: None)
-        game = Game.new_random(size=size, input_fn=web_input, print_fn=web_print, interactive=False)
+        game = Game.new_random(size=size)
         SESSIONS[sid] = game
         body = game_view(sid, game, game.look())
         return finish(response("200 OK", body))
@@ -231,12 +234,9 @@ def app(environ, start_response):
         loaded = load_game(SAVE_FILE)
         if not loaded:
             return finish(response("200 OK", layout("Load", "<div class=panel><p>No save found or save file invalid.</p><p><a href='/'>Back</a></p></div>")))
-        # Configure loaded game for web
-        loaded.input_fn = (lambda prompt="": "a")
-        loaded.print_fn = (lambda *args, **kwargs: None)
-        loaded.interactive = False
-        SESSIONS[sid] = loaded
-        body = game_view(sid, loaded, loaded.look())
+        game = Game.from_dict(loaded)
+        SESSIONS[sid] = Game.from_dict(loaded)
+        body = game_view(sid, game, game.look())
         return finish(response("200 OK", body))
 
     if path == "/play":
@@ -244,14 +244,12 @@ def app(environ, start_response):
         if not game:
             # redirect to start
             return finish(response("302 Found", "", headers=[("Location", "/")]))
-        # Ensure non-interactive configuration (in case of stale session)
-        if getattr(game, "interactive", True):
-            game.input_fn = (lambda prompt="": "a")
-            game.print_fn = (lambda *args, **kwargs: None)
-            game.interactive = False
         cmd = qs.get("cmd", ["look"])[0]
         out = handle_play(game, cmd)
         body = game_view(sid, game, out)
+        if game.ended:
+            SESSIONS.pop(sid, None)
+            body = "Game ended. <script>window.location.href='/'</script>"
         return finish(response("200 OK", body))
 
     return finish(response("404 Not Found", layout("Not found", "<div class=panel><p>Not found</p><p><a href='/'>&larr; Home</a></p></div>")))

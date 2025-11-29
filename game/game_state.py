@@ -1,0 +1,10 @@
+# --- Game states ---
+class GameState:
+    START_MENU = "START_MENU"
+    EXPLORING = "EXPLORING"
+    ASKING_QUESTION = "ASKING_QUESTION"
+    MAP_VIEW = "MAP_VIEW"
+    COMBAT = "COMBAT"
+    SHOP = "SHOP"
+    GAME_OVER = "GAME_OVER"
+

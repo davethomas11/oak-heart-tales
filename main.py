@@ -10,7 +10,7 @@ Run: python3 main.py
 import sys
 from typing import List
 
-from game import Game
+from game import Game, GameState
 from persistence import save_game, load_game, SAVE_FILE
 
 
@@ -69,17 +69,17 @@ def prompt_start_menu() -> str:
 
 def prompt_map_size() -> int:
     clear_screen()
-    print("Choose map size: 3, 5, or 7")
+    print("Choose map size: 3, 5, 7, 9")
     while True:
         s = input("> ").strip()
-        if s in ("3", "5", "7"):
+        if s in ("3", "5", "7", "9"):
             return int(s)
-        print("Invalid size. Choose 3, 5, or 7.")
+        print("Invalid size. Choose 3, 5, 7 or 9.")
 
 
 def game_loop(game: Game) -> None:
     """Main interactive loop. On death, allow Load or Restart instead of hard exit."""
-    while True:
+    while True and game.ended is False:
         # Start or resume session
         ui_render(game.look())
         while game.player.is_alive():
@@ -89,52 +89,23 @@ def game_loop(game: Game) -> None:
                 print("\nGoodbye.")
                 return
 
-            if cmd in ("n", "north"):
-                ui_render(game.move(0, -1))
-            elif cmd in ("s", "south"):
-                ui_render(game.move(0, 1))
-            elif cmd in ("e", "east"):
-                ui_render(game.move(1, 0))
-            elif cmd in ("w", "west"):
-                ui_render(game.move(-1, 0))
-            elif cmd in ("look", "l"):
-                ui_render(game.look())
-            elif cmd in ("map", "m"):
-                ui_render(game.map())
-            elif cmd in ("stats", "character", "c"):
-                ui_render(game.stats())
-            elif cmd in ("rest", "r"):
-                ui_render(game.rest())
-            elif cmd in ("inv", "inventory", "i"):
-                p = game.player
-                ui_render(f"Inventory: Potions x{p.potions}; Gold {p.gold}")
-            elif cmd in ("shop",):
-                ui_render(game.shop())
-            elif cmd in ("save",):
-                save_game(game, SAVE_FILE)
-                ui_render(f"Game saved to {SAVE_FILE}.")
-            elif cmd in ("load",):
-                loaded = load_game(SAVE_FILE)
-                if loaded:
-                    game.copy_from(loaded)
-                    ui_render("Game loaded.\n\n" + game.look())
-                else:
-                    ui_render("No save found or save file invalid.")
-            elif cmd in ("help", "h", "?"):
-                ui_render(HELP_TEXT)
-            elif cmd in ("quit", "exit", "q"):
-                confirm = input("Are you sure you want to quit? [y/N] ").strip().lower()
-                if confirm in ("y", "yes"):
-                    print("Farewell, adventurer.")
-                    return
-            elif cmd == "debug":
+            # First, try the decoupled actions API so any interface can drive the game
+            acted = game.execute_action(cmd)
+            if game.ended:
+                break  # exit to outer loop on game end
+            if acted is not None:
+                ui_render(acted)
+                continue
+
+            if cmd == "debug":
                 ui_render(game.debug_pos())
             else:
-                ui_render("Unknown command. Type 'help' for a list of commands.")
+                ui_render(game.look() + f"\n\nUnknown command [{cmd}]. Type 'help' for a list of commands.")
 
         # Player has died; offer options
-        ui_render("Game Over.\n[L]oad  |  [R]estart  |  [Q]uit")
-        while True:
+        if not game.ended:
+            ui_render("Game Over.\n[L]oad  |  [R]estart  |  [Q]uit")
+        while True and game.ended is False:
             try:
                 choice = input("> ").strip().lower()
             except (EOFError, KeyboardInterrupt):
@@ -142,7 +113,7 @@ def game_loop(game: Game) -> None:
                 return
 
             if choice in ("l", "load"):
-                loaded = load_game(SAVE_FILE)
+                loaded = Game.from_dict(load_game(SAVE_FILE))
                 if loaded:
                     game.copy_from(loaded)
                     break  # resume outer loop with loaded game
@@ -174,7 +145,7 @@ def main(argv: List[str]) -> int:
         if not loaded:
             print("No save found or save file invalid.")
             return 1
-        game_loop(loaded)
+        game_loop(Game.from_dict(loaded))
         return 0
 
     # New game

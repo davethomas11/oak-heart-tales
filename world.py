@@ -58,6 +58,9 @@ class World:
             "grid": [[t.to_dict() for t in row] for row in self.grid],
         }
 
+    def get_size(self) -> int:
+        return self.width  # assuming square world
+
     @staticmethod
     def from_dict(d: Dict[str, Any]) -> "World":
         width = int(d["width"])  # type: ignore

@@ -1,29 +1,8 @@
+# models/player.py
 from dataclasses import dataclass
-
-
-def clamp(val: int, lo: int, hi: int) -> int:
-    return max(lo, min(hi, val))
-
-
-def xp_to_next_level(level: int) -> int:
-    # Simple quadratic curve
-    return 50 + (level * level * 25)
-
-class Weapon:
-    def __init__(self, name, attack_bonus):
-        self.name = name
-        self.attack_bonus = attack_bonus
-
-    def __str__(self):
-        return f"Weapon(name={self.name}, attack_bonus={self.attack_bonus})"
-
-class Armor:
-    def __init__(self, name, defense_bonus):
-        self.name = name
-        self.defense_bonus = defense_bonus
-
-    def __str__(self):
-        return f"Armor(name={self.name}, defense_bonus={self.defense_bonus})"
+from models.utils import clamp, xp_to_next_level
+from models.weapon import Weapon
+from models.armor import Armor
 
 @dataclass
 class Player:
@@ -82,19 +61,3 @@ class Player:
     @property
     def total_defense(self):
         return self.defense + (self.armor.defense_bonus if self.armor else 0)
-
-
-@dataclass
-class Enemy:
-    name: str
-    ascii: str
-    level: int
-    max_hp: int
-    hp: int
-    attack: int
-    defense: int
-    xp_reward: int
-    gold_reward: int
-
-    def is_alive(self) -> bool:
-        return self.hp > 0
