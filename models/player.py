@@ -61,3 +61,21 @@ class Player:
     @property
     def total_defense(self):
         return self.defense + (self.armor.defense_bonus if self.armor else 0)
+
+    def to_dict(self):
+        return {
+            "name": self.name,
+            "level": self.level,
+            "hp": self.hp,
+            "max_hp": self.max_hp,
+            "mp": self.mp,
+            "max_mp": self.max_mp,
+            "attack": self.attack,
+            "defense": self.defense,
+            "potions": self.potions,
+            "known_spells": self.known_spells,
+            "gold": self.gold,
+            "weapon": self.weapon.name if self.weapon else None,
+            "armor": self.armor.name if self.armor else None,
+            "xp": self.xp,
+        }

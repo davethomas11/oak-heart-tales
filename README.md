@@ -14,11 +14,17 @@ Features
 Requirements
 - Python 3.8+ (tested conceptually with Python 3.11)
 
+### UI One - Terminal Version
+
 Run
 - macOS/Linux:
   - python3 main.py
 - Windows (depending on install):
   - py -3 main.py
+
+---
+
+## UI Two - Simple Browser-Based Version
 
 Web Interface (Play in your Browser)
 - Start the built-in web server:
@@ -26,6 +32,35 @@ Web Interface (Play in your Browser)
 - Then open http://127.0.0.1:8000/ in your browser.
 - Use the New Game or Load Game buttons. Move with the on-screen buttons or Arrow keys/WASD.
 - The web UI uses the same save file (save.json).
+
+
+---
+
+### UI Three - Web Interface (React Version)
+
+1\. **Install dependencies and build the React UI:**
+```bash
+cd react-ui
+npm install
+npm run build
+```
+
+2\. **Start the Python server:**
+```bash
+cd ..
+python3 react.py
+```
+
+3\. **Open your browser and go to:**
+```
+http://127.0.0.1:3000/
+```
+
+You can now play the game in your browser using the React interface.
+
+---
+
+Add this section after your existing "Web Interface" instructions.
 
 Start Menu
 - N: New game (choose map size 3x3, 5x5, or 7x7)

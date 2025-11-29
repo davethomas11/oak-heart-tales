@@ -115,5 +115,41 @@
     "base_attack": 8,
     "xp_reward": 55,
     "gold_reward": 20
+  },
+  {
+    "name": "Zombie",
+    "ascii": "  [o_o]\n   /|\\\n   / \\",
+    "base_hp": 14,
+    "base_defense": 3,
+    "base_attack": 5,
+    "xp_reward": 38,
+    "gold_reward": 12
+  },
+  {
+    "name": "Minotaur",
+    "ascii": "  (°_°)\n  /|\\\n  / \\",
+    "base_hp": 30,
+    "base_defense": 6,
+    "base_attack": 12,
+    "xp_reward": 120,
+    "gold_reward": 60
+  },
+  {
+    "name": "Hydra",
+    "ascii": "  ~<:o)~~~~\n   /|\\\n   / \\",
+    "base_hp": 35,
+    "base_defense": 7,
+    "base_attack": 14,
+    "xp_reward": 150,
+    "gold_reward": 80
+  },
+  {
+    "name": "Sorceress",
+    "ascii": "  <(^_^<)\n   /|\\\n   / \\",
+    "base_hp": 25,
+    "base_defense": 5,
+    "base_attack": 10,
+    "xp_reward": 90,
+    "gold_reward": 40
   }
 ]

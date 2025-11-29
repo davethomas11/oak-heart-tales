@@ -15,3 +15,16 @@ class Enemy:
 
     def is_alive(self) -> bool:
         return self.hp > 0
+
+    def to_dict(self) -> dict:
+        return {
+            "name": self.name,
+            "ascii": self.ascii,
+            "level": self.level,
+            "max_hp": self.max_hp,
+            "hp": self.hp,
+            "attack": self.attack,
+            "defense": self.defense,
+            "xp_reward": self.xp_reward,
+            "gold_reward": self.gold_reward,
+        }

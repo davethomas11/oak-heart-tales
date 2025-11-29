@@ -35,11 +35,15 @@ class Game:
         self._enemy_def_turns: int = 0
         self.pending_move = None
         self.question = ""
-        self.found_weapon = None
+        self.pending_weapon = None
         self.ended = False
         self.log = GameLog()
         self.shop_items = None
         self.save_file = SAVE_FILE
+        self.ascii_tiles = True
+
+    def current_tile(self) -> Tile:
+        return self.world.get(self.x, self.y)
 
     @staticmethod
     def new_random(size: int) -> "Game":
@@ -93,6 +97,7 @@ class Game:
         fresh = Game.new_random(size=self.world.get_size())
         self.copy_from(fresh)
         message = "Game restarted."
+        message += "\n" + self.look()
         return message
 
     def load_game(self, filename: str = None) -> str:
@@ -114,10 +119,19 @@ class Game:
         return self.world.get(self.x, self.y)
 
     def execute_question(self, answer: bool) -> str:
-        if self.state != GameState.ASKING_QUESTION or not hasattr(self, "pending_move"):
+        if self.state != GameState.ASKING_QUESTION or not hasattr(self, "pending_move") or not hasattr(self, "pending_weapon"):
             return "No question pending."
         if self.pending_move:
             return self.execute_pending_move(answer)
+        if self.pending_weapon:
+            if answer:
+                self.player.weapon = self.pending_weapon
+                response = f"You equip the {self.pending_weapon.name}."
+            else:
+                response = "You leave the weapon behind."
+            del self.pending_weapon
+            self.change_state(GameState.EXPLORING)
+            return response
         else:
             return "No question pending."
 
@@ -146,7 +160,7 @@ class Game:
         # mark explored when arriving
         self._mark_explored(self.x, self.y)
         tile = self.current_tile()
-        art = render_room(tile)
+        art = render_room(tile) if self.ascii_tiles else ""
         desc = f"{art}\nYou arrive at {tile.name}. {tile.description}"
         if tile.shop:
             desc += "\nYou see a merchant here (type shop to enter)."
@@ -188,7 +202,7 @@ class Game:
         if self.state == GameState.GAME_OVER:
             return "Game Over. You can load a saved game or restart."
         t = self.current_tile()
-        art = render_room(t)
+        art = render_room(t) if self.ascii_tiles else ""
         return f"{art}\n{t.name}: {t.description} \n{'You see a merchant here (type shop to enter).' if t.shop else ''}"
 
     # --- Actions facade for interfaces ---
@@ -472,6 +486,7 @@ class Game:
         cur = self.player.weapon
         cur_bonus = cur.attack_bonus if cur else 0
         diff = found.attack_bonus - cur_bonus
+        self.pending_weapon = found
         self.change_state(GameState.ASKING_QUESTION)
         self.question = f"You find {found.name} (ATK +{found.attack_bonus}) from {source}."
         self.question += f"\nCurrent: {cur.name} (ATK +{cur.attack_bonus})." if cur else "\nYou have no weapon equipped."
