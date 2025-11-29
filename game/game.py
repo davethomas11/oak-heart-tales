@@ -39,6 +39,7 @@ class Game:
         self.ended = False
         self.log = GameLog()
         self.shop_items = None
+        self.save_file = SAVE_FILE
 
     @staticmethod
     def new_random(size: int) -> "Game":
@@ -83,8 +84,9 @@ class Game:
         return f"{self.log}"
 
     def save_game(self, filename: str = None) -> str:
-        save(self.to_dict(), filename if filename else SAVE_FILE)
-        message = "Game saved."
+        file = filename if filename else self.save_file
+        save(self.to_dict(), file)
+        message = f"Game saved to {file}."
         return message
 
     def restart_game(self) -> str:
@@ -95,7 +97,7 @@ class Game:
 
     def load_game(self, filename: str = None) -> str:
         from persistence import load_game
-        loaded = load_game(filename if filename else SAVE_FILE)
+        loaded = load_game(filename if filename else self.save_file)
         if loaded:
             self.copy_from(Game.from_dict(loaded))
             message = "Game loaded."
