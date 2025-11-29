@@ -14,7 +14,10 @@ import secrets
 import html
 from typing import Dict, Tuple, Callable, Optional, List
 
-from game import Game
+from engine.game import Game
+
+from json_loader import JsonLoader
+from text_loader import TextLoader
 from persistence import save_game, load_game, SAVE_FILE
 
 # Very small in-memory session store. Not for production use.
@@ -252,7 +255,14 @@ def app(environ, start_response):
                 size = 5
         except Exception:
             size = 5
-        game = Game.new_random(size=size)
+        data_loader = JsonLoader()
+        tiles = data_loader.load("data/tileset.json")
+        game = Game.new_random(size=size, tiles=tiles)
+        game.save_fn = save_game
+        game.load_fn = load_game
+        game.data_loader = data_loader
+        game.ascii_loader = TextLoader("data/rooms")
+        game.load_configurations("data/enemies.json")
         game.save_file = f"{sid}_{environ.get('REMOTE_ADDR', 'unknown')}.sav"
         SESSIONS[sid] = game
         body = game_view(sid, game, game.look())
@@ -284,6 +294,11 @@ def app(environ, start_response):
             return finish(response("200 OK", layout("Load",
                                                     "<div class=panel><p>No save found or save file invalid.</p><p><a href='/'>Back</a></p></div>")))
         game = Game.from_dict(loaded)
+        game.save_fn = save_game
+        game.load_fn = load_game
+        game.data_loader = JsonLoader()
+        game.ascii_loader = TextLoader("data/rooms")
+        game.load_configurations("data/enemies.json")
         game.save_file = f"{sid}_{environ.get('REMOTE_ADDR', 'unknown')}.sav"
         SESSIONS[sid] = Game.from_dict(loaded)
         body = game_view(sid, game, game.look())

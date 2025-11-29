@@ -1,4 +1,4 @@
-Oakheart Tales — Tiny Text MUD (Single Player)
+Oakheart Tales — Tiny Text (Single Player)
 
 A minimal text-based single-player MUD-like RPG you can run in a terminal.
 

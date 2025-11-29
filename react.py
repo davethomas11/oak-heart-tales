@@ -1,6 +1,8 @@
 # react.py
 from flask import Flask, send_from_directory, request, jsonify
 import os
+from json_loader import JsonLoader
+from text_loader import TextLoader
 import secrets
 
 from main import Game  # Adjust import if needed
@@ -10,13 +12,20 @@ app = Flask(__name__, static_folder="react-ui/build", static_url_path="")
 # Simple in-memory session store
 SESSIONS = {}
 
+def create_game():
+    tiles = JsonLoader().load("data/tileset.json")
+    game = Game.new_random(size=8, tileset=tiles)
+    game.ascii_tiles = False
+    game.data_loader = JsonLoader()
+    game.ascii_loader = TextLoader("data/rooms")
+    game.load_configurations("data/enemies.json")
+    return game
+
 def get_game(sid):
     if sid in SESSIONS:
         return SESSIONS[sid]
     # Create new game if not found
-    game = Game.new_random(size=8)
-    game.ascii_tiles = False
-    SESSIONS[sid] = game
+    game = create_game()
     return game
 
 @app.route("/api/state")
@@ -88,7 +97,7 @@ def api_play():
 def api_new_game():
     sid = request.args.get("sid") or secrets.token_hex(8)
     size = int(request.args.get("size", 8))
-    game = Game.new_random(size=size)
+    game = create_game()
     game.ascii_tiles = False
     SESSIONS[sid] = game
     output = game.look()

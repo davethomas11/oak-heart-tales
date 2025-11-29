@@ -1,6 +1,6 @@
 import unittest
 
-from game import Game
+from engine.game import Game
 
 
 class TestGamePersistence(unittest.TestCase):

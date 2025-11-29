@@ -10,8 +10,10 @@ Run: python3 main.py
 import sys
 from typing import List
 
-from game import Game, GameState
-from persistence import save_game, load_game, SAVE_FILE
+from engine.game import Game
+from json_loader import JsonLoader
+from persistence import load_game, save_game, SAVE_FILE
+from text_loader import TextLoader
 
 
 def clear_screen() -> None:
@@ -25,13 +27,14 @@ def ui_render(text: str) -> None:
     clear_screen()
     print(text)
 
+
 def banner() -> str:
     return (
-        "=" * 50
-        + "\n"
-        + "Oakheart Tales: A Tiny Text MUD\n"
-        + "Explore, fight, and grow stronger. Type 'help' to begin.\n"
-        + "=" * 50
+            "=" * 50
+            + "\n"
+            + "Oakheart Tales: A Tiny Text Adventure\n"
+            + "Explore, fight, and grow stronger. Type 'help' to begin.\n"
+            + "=" * 50
     )
 
 
@@ -128,12 +131,20 @@ def main(argv: List[str]) -> int:
         if not loaded:
             print("No save found or save file invalid.")
             return 1
-        game_loop(Game.from_dict(loaded))
-        return 0
+        return run_game(Game.from_dict(loaded))
 
     # New game
     size = prompt_map_size()
-    game = Game.new_random(size=size)
+    tileset = JsonLoader().load("data/tileset.json")
+    return run_game(Game.new_random(size=size, tileset=tileset))
+
+def run_game(game: Game) -> int:
+    game.data_loader = JsonLoader()
+    game.ascii_loader = TextLoader("data/rooms")
+    game.load_configurations("data/enemies.json")
+    game.save_file = SAVE_FILE
+    game.save_fn = save_game
+    game.load_fn = load_game
     game_loop(game)
     return 0
 

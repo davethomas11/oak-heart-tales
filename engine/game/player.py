@@ -1,25 +1,43 @@
 # models/player.py
-from dataclasses import dataclass
-from models.utils import clamp, xp_to_next_level
-from models.weapon import Weapon
-from models.armor import Armor
+def clamp(val: int, lo: int, hi: int) -> int:
+    return max(lo, min(hi, val))
 
-@dataclass
+def xp_to_next_level(level: int) -> int:
+    # Simple quadratic curve
+    return 50 + (level * level * 25)
+
 class Player:
-    name: str
-    level: int
-    hp: int
-    max_hp: int
-    mp: int
-    max_mp: int
-    attack: int
-    defense: int
-    potions: int
-    known_spells: list
-    gold: int
-    weapon: Weapon
-    armor: Armor
-    xp: int = 0
+    def __init__(
+            self,
+            name: str,
+            level: int,
+            hp: int,
+            max_hp: int,
+            mp: int,
+            max_mp: int,
+            attack: int,
+            defense: int,
+            potions: int,
+            known_spells: list,
+            gold: int,
+            weapon,
+            armor,
+            xp: int = 0,
+    ):
+        self.name = name
+        self.level = level
+        self.hp = hp
+        self.max_hp = max_hp
+        self.mp = mp
+        self.max_mp = max_mp
+        self.attack = attack
+        self.defense = defense
+        self.potions = potions
+        self.known_spells = known_spells
+        self.gold = gold
+        self.weapon = weapon
+        self.armor = armor
+        self.xp = xp
 
     def is_alive(self) -> bool:
         return self.hp > 0
@@ -41,7 +59,6 @@ class Player:
         while self.xp >= xp_to_next_level(self.level):
             self.xp -= xp_to_next_level(self.level)
             self.level += 1
-            # Improve stats on level up
             hp_gain = 5 + self.level
             atk_gain = 1 + (self.level // 3)
             def_gain = 1 if self.level % 2 == 0 else 0

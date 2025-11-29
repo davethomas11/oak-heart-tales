@@ -1,7 +1,7 @@
 import unittest
 import random
 
-from combat import calc_damage, generate_enemy, depth_from_pos
+from engine.game.combat import calc_damage, generate_enemy, depth_from_pos
 
 
 class TestCombat(unittest.TestCase):

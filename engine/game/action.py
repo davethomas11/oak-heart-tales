@@ -1,17 +1,37 @@
-from dataclasses import asdict, dataclass
-from typing import List, Callable, Dict, Optional
-from game import GameState
-from combat import SPELLS
-import traceback
+from .game_state import GameState
+from .combat import SPELLS
 
-@dataclass
+#__pragma__('skip')
+import traceback
+#__pragma__('noskip')
+
 class Action:
-    id: str
-    label: str
-    hotkeys: List[str]
-    category: str = "general"
-    enabled: bool = True
-    reason: Optional[str] = None
+    def __init__(
+            self,
+            id: str,
+            label: str,
+            hotkeys: list,
+            category: str = "general",
+            enabled: bool = True,
+            reason: str = None
+    ):
+        self.id = id
+        self.label = label
+        self.hotkeys = hotkeys
+        self.category = category
+        self.enabled = enabled
+        self.reason = reason
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "label": self.label,
+            "hotkeys": self.hotkeys,
+            "category": self.category,
+            "enabled": self.enabled,
+            "reason": self.reason,
+        }
+
 
 class _Actions:
     """
@@ -19,19 +39,19 @@ class _Actions:
     available actions and invoke them without hardcoding game logic.
     """
 
-    def __init__(self, game: "Game") -> None:
+    def __init__(self, game) -> None:
         self.g = game
         # map action id -> callable returning text
-        self._exec_map: Dict[str, Callable[[], str]] = {}
+        self._exec_map = {}
         # also map hotkeys to ids for convenience
-        self._key_to_id: Dict[str, str] = {}
+        self._key_to_id = {}
 
-    def available(self) -> List[dict]:
+    def available(self) -> list:
         g = self.g
         w = g.world
         x, y = g.x, g.y
 
-        actions: List[Action] = []
+        actions = []
 
         # Branch by game state
         if g.state == GameState.COMBAT:
@@ -109,11 +129,13 @@ class _Actions:
             actions.append(Action("stats", "Stats", ["stats", "s"], "shop"))
             # Build exec map for shop
             self._exec_map = {
-                **{f"shop_buy::{item.lower()}": (lambda it=item: g.shop(it)) for item in shop.keys()},
+                # **{f"shop_buy::{item.lower()}": (lambda it=item: g.shop(it)) for item in shop.keys()},
                 "shop_exit": g.shop_exit,
                 "look": g.look,
                 "stats": g.stats,
             }
+            for item in shop.keys():
+                self._exec_map[f"shop_buy::{item.lower()}"] = (lambda it=item: g.shop(it))
 
 
         elif g.state == GameState.START_MENU:
@@ -147,7 +169,7 @@ class _Actions:
         else:
             # Exploration/default actions
             # Movement actions (n,s,e,w), disabled at edges with reason
-            def can_go(nx: int, ny: int) -> (bool, Optional[str]):
+            def can_go(nx: int, ny: int) -> (bool, str):
                 if nx < 0 or ny < 0 or nx >= w.width or ny >= w.height:
                     return False, "Edge of the world"
                 return True, None
@@ -212,9 +234,9 @@ class _Actions:
                 self._key_to_id[k.lower()] = a.id
 
         # Return simple dicts for portability/serialization
-        return [asdict(a) for a in actions]
+        return [a.to_dict() for a in actions]
 
-    def execute(self, action_id_or_key: str) -> Optional[str]:
+    def execute(self, action_id_or_key: str) -> str:
         if not action_id_or_key:
             return None
         key = action_id_or_key.strip().lower()
@@ -230,4 +252,8 @@ class _Actions:
         try:
             return fn()
         except Exception:
-            return f"Action '{aid}' failed: \n{traceback.format_exc()}"
+            reason = ""
+            #__pragma__('skip')
+            reason = traceback.format_exc()
+            #__pragma__('noskip')
+            return f"Action '{aid}' failed: \n{reason}"

@@ -1,6 +1,6 @@
 import unittest
 
-from world import World
+from engine.game.world import World
 
 
 class TestWorld(unittest.TestCase):

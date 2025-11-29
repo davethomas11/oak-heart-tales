@@ -1,24 +1,24 @@
-from dataclasses import dataclass
-from typing import List, Optional, Dict, Any
-import json
-import os
+import math
 import random
 
-
-DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
-TILESET_FILE = os.path.join(DATA_DIR, "tileset.json")
-
-
-@dataclass
 class Tile:
-    name: str
-    description: str
-    danger: float
-    safe: bool = False
-    ascii: Optional[str] = None  # filename of ascii art for this tile (relative to data/rooms)
-    shop: bool = False  # indicates a shop is present on this tile
+    def __init__(
+            self,
+            name: str,
+            description: str,
+            danger: float,
+            safe: bool = False,
+            ascii: str = None,
+            shop: bool = False,
+    ):
+        self.name = name
+        self.description = description
+        self.danger = danger
+        self.safe = safe
+        self.ascii = ascii
+        self.shop = shop
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict:
         return {
             "name": self.name,
             "description": self.description,
@@ -29,28 +29,28 @@ class Tile:
         }
 
     @staticmethod
-    def from_dict(d: Dict[str, Any]) -> "Tile":
+    def from_dict(d: dict) -> "Tile":
         return Tile(
             name=d["name"],
-            description=d.get("description", ""),
-            danger=float(d.get("danger", 0.0)),
-            safe=bool(d.get("safe", False)),
-            ascii=d.get("ascii"),
-            shop=bool(d.get("shop", False)),
+            description=d["description"],
+            danger=float(d["danger"] if "danger" in d else 0.0),
+            safe=bool(d["safe"] if "safe" in d else False),
+            ascii=d["ascii"],
+            shop=bool(d["shop"] if "shop" in d else False),
         )
 
 
 class World:
-    def __init__(self, width: int, height: int, grid: List[List[Tile]], seed: Optional[int] = None):
+    def __init__(self, width: int, height: int, grid: list, seed: int = None):
         self.width = width
         self.height = height
         self.grid = grid
         self.seed = seed
 
-    def get(self, x: int, y: int) -> Tile:
+    def get_tile(self, x: int, y: int) -> Tile:
         return self.grid[y][x]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict:
         return {
             "width": self.width,
             "height": self.height,
@@ -62,7 +62,7 @@ class World:
         return self.width  # assuming square world
 
     @staticmethod
-    def from_dict(d: Dict[str, Any]) -> "World":
+    def from_dict(d: dict) -> "World":
         width = int(d["width"])  # type: ignore
         height = int(d["height"])  # type: ignore
         seed = d.get("seed")
@@ -70,7 +70,7 @@ class World:
         return World(width=width, height=height, grid=grid, seed=seed)
 
     @staticmethod
-    def _load_tileset() -> Dict[str, Any]:
+    def _default_tileset() -> dict:
         # Provide a default tileset if file is missing
         default = {
             "village": {"name": "Oakheart Village", "description": "Your humble village. A safe haven.", "danger": 0.0, "safe": True},
@@ -85,33 +85,40 @@ class World:
                 {"name": "Eastgate Road", "description": "A cobbled road lined with old mileposts.", "danger": 0.25},
             ]
         }
-        try:
-            with open(TILESET_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                # basic validation
-                if "village" in data and "tiles" in data:
-                    return data
-        except FileNotFoundError:
-            pass
         return default
 
+
+    def _pseudoRandomSeed(seed) -> dict:
+        x = math.sin(seed) * 10000
+        rng = int((x - math.floor(x)) * 1000000)
+        return {
+            "choice": lambda lst: lst[rng % len(lst)],
+            "randrange": lambda a, b: a + (rng % (b - a)),
+            "shuffle": lambda lst: lst.sort(key=lambda _: rng)
+        }
+
     @staticmethod
-    def generate_random(size: int, seed: Optional[int] = None) -> "World":
+    def generate_random(size: int, tileset: dict, seed: int = None) -> "World":
+        if tileset is None:
+            tileset = World._default_tileset()
         # Create a world centered on a safe village, increasing danger with distance
         if seed is None:
             seed = random.randrange(1, 10_000_000)
+        # For JS compatibility
+        rng = World._pseudoRandomSeed(seed)
+        #__pragma__('skip')
         rng = random.Random(seed)
-        tileset = World._load_tileset()
+        #__pragma__('noskip')
         base_tiles = tileset["tiles"]
         village_def = tileset["village"]
 
         width = height = size
         cx = width // 2
         cy = height // 2
-        grid: List[List[Tile]] = []
+        grid: list = []
 
         for y in range(height):
-            row: List[Tile] = []
+            row: list = []
             for x in range(width):
                 if x == cx and y == cy:
                     row.append(Tile.from_dict(village_def))
@@ -120,13 +127,17 @@ class World:
                 td = rng.choice(base_tiles)
                 # scale danger by Manhattan distance from center
                 dist = abs(x - cx) + abs(y - cy)
-                danger = float(td.get("danger", 0.2))
+                danger = float(td["danger"] if "danger" in td else 0.2)
                 scaled = min(0.8, max(0.0, danger + dist * 0.05))
-                row.append(Tile(name=td["name"], description=td.get("description", ""), danger=scaled, safe=False, ascii=td.get("ascii")))
+                row.append(Tile(name=td["name"], description=td["description"], danger=scaled, safe=False, ascii=td["ascii"]))
             grid.append(row)
 
         # Place a few random shops deterministically based on the seed
+        # For JS compatibility
+        rng2 = World._pseudoRandomSeed(seed)
+        #__pragma__('skip')
         rng2 = random.Random(seed + 1337)
+        #__pragma__('noskip')
         num_shops = max(1, size // 3)
         placed = 0
         positions = [(x, y) for y in range(height) for x in range(width) if not (x == cx and y == cy)]

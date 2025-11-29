@@ -1,16 +1,17 @@
 import random
-from dataclasses import asdict
-from typing import List, Optional
 
-from models import Player, Weapon, Armor, clamp, xp_to_next_level
-from world import World, Tile
-from combat import generate_enemy, SPELLS, calc_damage
-from ascii_renderer import render_room
-from game.util import _hp_line, _clamp_int, _enemy_defense_effect
-from game.game_state import GameState
-from game.action import _Actions
-from persistence import save_game as save, SAVE_FILE
-from game.game_log import GameLog
+from .player import Player as PlayerModel
+from .enemy import Enemy as EnemyModel
+from .armor import Armor
+from .weapon import Weapon
+from .player import Player, clamp, xp_to_next_level
+from .world import World, Tile
+from .combat import generate_enemy, SPELLS, calc_damage
+from .ascii_renderer import render_room
+from .util import _hp_line, _clamp_int, _enemy_defense_effect
+from .game_state import GameState
+from .action import _Actions
+from .game_log import GameLog
 
 class Game:
     def __init__(self, world: World, player: Player, x: int, y: int):
@@ -27,7 +28,7 @@ class Game:
         # Game state & combat fields
         self.state: str = GameState.EXPLORING
         self.enemy = None  # type: ignore[assignment]
-        self._combat_log: List[str] = []
+        self._combat_log: list = []
         self._player_regen_turns: int = 0
         self._player_regen_amount: int = 0
         self._enemy_stunned_turns: int = 0
@@ -39,15 +40,23 @@ class Game:
         self.ended = False
         self.log = GameLog()
         self.shop_items = None
-        self.save_file = SAVE_FILE
+        self.save_file = None
+        self.save_fn = lambda : "Save game not implemented."
+        self.load_fn = lambda : False
         self.ascii_tiles = True
+        self.data_loader = lambda : None
+        self.ascii_loader = lambda : None
+        self.enemy_archetypes = []
+
+    def load_configurations(self, enemies: str):
+        self.enemy_archetypes = self.data_loader.load(enemies)
 
     def current_tile(self) -> Tile:
-        return self.world.get(self.x, self.y)
+        return self.world.get_tile(self.x, self.y)
 
     @staticmethod
-    def new_random(size: int) -> "Game":
-        w = World.generate_random(size=size)
+    def new_random(size: int, tileset: dict, seed: int = None) -> "Game":
+        w = World.generate_random(size, tileset, seed)
         # Start in center
         cx = w.width // 2
         cy = w.height // 2
@@ -89,9 +98,8 @@ class Game:
 
     def save_game(self, filename: str = None) -> str:
         file = filename if filename else self.save_file
-        save(self.to_dict(), file)
-        message = f"Game saved to {file}."
-        return message
+        result = self.save_fn(self.to_dict(), file)
+        return result
 
     def restart_game(self) -> str:
         fresh = Game.new_random(size=self.world.get_size())
@@ -101,8 +109,7 @@ class Game:
         return message
 
     def load_game(self, filename: str = None) -> str:
-        from persistence import load_game
-        loaded = load_game(filename if filename else self.save_file)
+        loaded = self.load_fn(filename if filename else self.save_file)
         if loaded:
             self.copy_from(Game.from_dict(loaded))
             message = "Game loaded."
@@ -114,9 +121,6 @@ class Game:
         self.ended = True
         message = "Game ended by player."
         return message
-
-    def current_tile(self) -> Tile:
-        return self.world.get(self.x, self.y)
 
     def execute_question(self, answer: bool) -> str:
         if self.state != GameState.ASKING_QUESTION or not hasattr(self, "pending_move") or not hasattr(self, "pending_weapon"):
@@ -160,14 +164,14 @@ class Game:
         # mark explored when arriving
         self._mark_explored(self.x, self.y)
         tile = self.current_tile()
-        art = render_room(tile) if self.ascii_tiles else ""
+        art = render_room(tile, self.ascii_loader) if self.ascii_tiles else ""
         desc = f"{art}\nYou arrive at {tile.name}. {tile.description}"
         if tile.shop:
             desc += "\nYou see a merchant here (type shop to enter)."
 
         # Roll encounter -> switch to action-driven combat
         if not tile.safe and random.random() < tile.danger:
-            enemy = generate_enemy(self.player.level, self.x, self.y)
+            enemy = generate_enemy(self.enemy_archetypes, self.player.level, self.x, self.y)
             intro = self.enter_combat(enemy)
             return desc + "\n\n" + intro
         # Field find chance (can find gear lying around)
@@ -202,18 +206,18 @@ class Game:
         if self.state == GameState.GAME_OVER:
             return "Game Over. You can load a saved game or restart."
         t = self.current_tile()
-        art = render_room(t) if self.ascii_tiles else ""
+        art = render_room(t, self.ascii_loader) if self.ascii_tiles else ""
         return f"{art}\n{t.name}: {t.description} \n{'You see a merchant here (type shop to enter).' if t.shop else ''}"
 
     # --- Actions facade for interfaces ---
-    def available_actions(self) -> List[dict]:
+    def available_actions(self) -> list:
         """
         Return a simple, serializable list of available actions for the current state.
         Each item contains: id, label, enabled, reason (optional), category, hotkeys.
         """
         return self.actions.available()
 
-    def execute_action(self, action_id_or_key: str) -> Optional[str]:
+    def execute_action(self, action_id_or_key: str) -> str:
         """Execute an action by id or key; returns output text or None if unknown."""
         log = self.actions.execute(action_id_or_key)
         self.log.add_entry(log)
@@ -262,7 +266,7 @@ class Game:
     def shop_enter(self) -> str:
         return "You enter the shop!\n" + self.shop()
 
-    def shop(self, selection: Optional[str] = None) -> str:
+    def shop(self, selection: str = None) -> str:
 
         tile = self.current_tile()
         if not getattr(tile, "shop", False):
@@ -362,7 +366,7 @@ class Game:
             # Persist minimal combat snapshot if in combat
             "combat": (
                 {
-                    "enemy": asdict(self.enemy) if self.enemy else None,
+                    "enemy": self.enemy.to_4dict() if self.enemy else None,
                     "regen_turns": self._player_regen_turns,
                     "regen_amount": self._player_regen_amount,
                     "enemy_stunned": self._enemy_stunned_turns,
@@ -376,7 +380,7 @@ class Game:
 
     @staticmethod
     def from_dict(d: dict) -> "Game":
-        from models import Player as PlayerModel  # avoid circular import types
+
         w = World.from_dict(d["world"])
         pd = d["player"]
         # Reconstruct weapon/armor objects if present
@@ -424,7 +428,7 @@ class Game:
         try:
             if isinstance(cmb, dict) and cmb.get("enemy"):
                 ed = cmb["enemy"]
-                from models import Enemy as EnemyModel
+
                 g.enemy = EnemyModel(
                     name=ed["name"], ascii=ed["ascii"], level=int(ed["level"]), max_hp=int(ed["max_hp"]),
                     hp=int(ed["hp"]), attack=int(ed["attack"]), defense=int(ed["defense"]),
@@ -463,7 +467,7 @@ class Game:
         self.actions.available()
 
     # --- Loot and discovery helpers ---
-    def _weapon_pool(self) -> List[Weapon]:
+    def _weapon_pool(self) -> list:
         # Simple tiered weapons; bonuses are small to moderate
         return [
             Weapon("Rusty Dagger", 1),
@@ -532,7 +536,7 @@ class Game:
         return "\n".join(lines)
 
     def _end_combat(self, victory: bool) -> str:
-        out_lines: List[str] = []
+        out_lines: list = []
         if victory:
             e = self.enemy
             if e:
@@ -563,15 +567,15 @@ class Game:
         self.change_state(GameState.EXPLORING)
         return "\n".join(out_lines)
 
-    def _player_regen_tick(self) -> Optional[str]:
+    def _player_regen_tick(self) -> str:
         if self._player_regen_turns > 0 and self._player_regen_amount > 0:
             healed = self.player.heal(self._player_regen_amount)
             self._player_regen_turns -= 1
             return f"Regen restores {healed} HP."
         return None
 
-    def _enemy_turn(self) -> List[str]:
-        msgs: List[str] = []
+    def _enemy_turn(self) -> list:
+        msgs: list = []
         if not self.enemy:
             return msgs
         e = self.enemy
@@ -626,7 +630,7 @@ class Game:
             return "Not enough MP!"
         self.player.mp -= cost
         e = self.enemy
-        msgs: List[str] = []
+        msgs: list = []
         power = int(SPELLS[spell]["pow"])
         if spell == "Heal":
             healed = self.player.heal(power + self.player.level)

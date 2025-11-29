@@ -1,6 +1,6 @@
 import unittest
 
-from models import clamp, xp_to_next_level, Player
+from engine.game.player import clamp, xp_to_next_level, Player
 
 
 class TestModels(unittest.TestCase):

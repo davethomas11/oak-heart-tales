@@ -8,8 +8,9 @@ import tkinter as tk
 from tkinter import scrolledtext, messagebox
 from typing import List
 import sys
-
-from game import Game
+from json_loader import JsonLoader
+from text_loader import TextLoader
+from engine.game import Game
 from persistence import save_game, load_game, SAVE_FILE
 
 
@@ -17,7 +18,7 @@ class MudGUI:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("Oakheart Tales")
-        self.game: Game | None = None
+        self.game = None
         self.choosing_map_size = False
 
         # Banner
@@ -171,7 +172,15 @@ class MudGUI:
             self.start_menu()
 
     def start_new_game(self, size: int):
-        self.game = Game.new_random(size=size)
+        data_loader = JsonLoader()
+        tiles = data_loader.load("data/tileset.json")
+        self.game = Game.new_random(size=size, tiles=tiles)
+        self.game.data_loader = JsonLoader()
+        self.game.load_configurations("data/enemies.json")
+        self.game.ascii_loader = TextLoader("data/rooms")
+        self.game.load_fn = load_game
+        self.game.save_fn = save_game
+        self.game.save_file = SAVE_FILE
         self.write(self.game.look())
         self.render_actions(self.game.available_actions())
 
