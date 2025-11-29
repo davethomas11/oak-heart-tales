@@ -28,20 +28,20 @@ def generate_enemy(enemy_archetypes: list, player_level: int, x: int, y: int) ->
     archetype = random.choice(available)
     lvl = max(1, min(player_level + 3, player_level + random.choice([-1, 0, 0, 1]) + depth // 2))
     max_hp = archetype["base_hp"] + lvl * 3 + random.randint(0, 3)
-    atk = archetype.get("base_attack", 3) + lvl + random.randint(0, 2)
+    atk = archetype["base_attack"] + lvl + random.randint(0, 2)
     defense = archetype["base_defense"] + (lvl // 3)
     xp_reward = archetype["xp_reward"] + lvl * 10 + random.randint(0, 10)
     gold_reward = archetype["gold_reward"] + lvl * 3 + random.randint(0, 6)
     return Enemy(
-        name=f"{archetype['name']} (Lv {lvl})",
-        ascii=archetype.get("ascii", "???"),
-        level=lvl,
-        max_hp=max_hp,
-        hp=max_hp,
-        attack=atk,
-        defense=defense,
-        xp_reward=xp_reward,
-        gold_reward=gold_reward
+        f"{archetype['name']} (Lv {lvl})",
+        archetype["ascii"],
+        lvl,
+        max_hp,
+        max_hp,
+        atk,
+        defense,
+        xp_reward,
+        gold_reward
     )
 
 

@@ -147,7 +147,7 @@ class Game:
             return "You can't go that way."
 
         # Before moving, warn the player if the destination is very dangerous
-        dest_tile = self.world.get(nx, ny)
+        dest_tile = self.world.get_tile(nx, ny)
         try:
             danger_threshold = 0.6  # warn for risky areas
             if (not dest_tile.safe and dest_tile.danger >= danger_threshold) and ask:

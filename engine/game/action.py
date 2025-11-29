@@ -182,7 +182,7 @@ class _Actions:
             ]
             for aid, label, cat, (dx, dy), keys in dirs:
                 ok, reason = can_go(x + dx, y + dy)
-                actions.append(Action(id=aid, label=label, hotkeys=keys, category=cat, enabled=ok, reason=reason))
+                actions.append(Action(aid, label, keys, cat, ok, reason))
 
             # Basic actions
             actions.extend(
@@ -191,8 +191,8 @@ class _Actions:
                     Action("map", "Map", ["map", "m"], "info"),
                     Action("stats", "Stats", ["stats", "character", "c"], "info"),
                     Action("rest", "Rest", ["rest", "r"], "camp"),
-                    Action("shop", "Shop", ["shop"], "town", enabled=bool(getattr(g.current_tile(), "shop", False)),
-                           reason=None if getattr(g.current_tile(), "shop", False) else "No merchant here"),
+                    Action("shop", "Shop", ["shop"], "town", bool(getattr(g.current_tile(), "shop", False)),
+                           None if getattr(g.current_tile(), "shop", False) else "No merchant here"),
                     Action("inventory", "Inventory", ["inv", "inventory", "i"], "info"),
                 ]
             )
