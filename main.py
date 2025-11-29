@@ -25,23 +25,6 @@ def ui_render(text: str) -> None:
     clear_screen()
     print(text)
 
-
-HELP_TEXT = (
-    "Commands:\n"
-    "  n,s,e,w           Move north/south/east/west\n"
-    "  look              Describe your current location\n"
-    "  map               Show map of explored areas\n"
-    "  stats             Show your character sheet\n"
-    "  rest              Rest to recover a bit of HP (unsafe outside village)\n"
-    "  shop              Visit the merchant if present to buy spells\n"
-    "  inv               Show inventory\n"
-    "  save              Save game to save.json\n"
-    "  load              Load game from save.json\n"
-    "  help              Show this help\n"
-    "  quit              Quit the game\n"
-)
-
-
 def banner() -> str:
     return (
         "=" * 50

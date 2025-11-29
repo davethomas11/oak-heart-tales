@@ -60,7 +60,19 @@ You can now play the game in your browser using the React interface.
 
 ---
 
-Add this section after your existing "Web Interface" instructions.
+### UI Four - TKinter GUI Version (Experimental)
+
+```bash
+python3 simple_tk_window.py
+```
+
+Check install.sh for dependencies and installing tkinter on OSX. 
+If you get errors about tkinter not being found, you may need to install it separately.
+AI can help you install tkinter for you specific OS if needed.
+
+---
+
+Some Game Instructions
 
 Start Menu
 - N: New game (choose map size 3x3, 5x5, or 7x7)
