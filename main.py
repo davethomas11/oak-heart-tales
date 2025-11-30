@@ -112,7 +112,8 @@ def game_loop(game: Game) -> None:
                     size = max(game.world.width, game.world.height)
                 except Exception:
                     size = 5
-                fresh = Game.new_random(size=size)
+                tileset = JsonLoader().load("data/tileset.json")
+                fresh = Game.new_random(size=size, tileset=tileset)
                 game.copy_from(fresh)
                 break  # resume outer loop with fresh game
             if choice in ("q", "quit"):

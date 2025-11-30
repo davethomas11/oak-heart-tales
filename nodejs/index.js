@@ -5,6 +5,7 @@ import * as worldModule from "../engine/game/__target__/world.js";
 
 import create from 'prompt-sync';
 import fs from 'fs';
+
 const prompt = create();
 
 // Initialize the game (assuming Game class exists)
@@ -133,7 +134,7 @@ function startUp() {
     const choice = promptStartMenu();
     if (choice === 'new') {
         const size = promptMapSize();
-        const tileset = loadJsonFile("../data/tileset.json")
+        const tileset = loadJsonFile("../data/tileset.json");
         const player = new playerModule.Player("Hero", 1, 25, 25, 5, 5, 2, 1, 3, [], 0, null, null);
         const grid = generateRandomTilesetGrid(size, tileset);
         const world = new worldModule.World(size, size, grid, getSeedFromGeneratedGrid(grid));
@@ -141,12 +142,48 @@ function startUp() {
         runGame(game);
     } else if (choice === 'load') {
         const data = loadGame("nodejs_savegame.json");
-        game.copy_from(data);
-        runGame(game);
+        if (data !== null) {
+            console.log("Loaded saved game.");
+        } else {
+            console.log("No saved game found.");
+            prompt("Press Enter to return to main menu...");
+            startUp();
+            return;
+        }
+        runGame(loadFromData(data));
     } else if (choice === 'quit') {
         console.log("Goodbye!");
         process.exit(0);
     }
+}
+
+function loadFromData(data) {
+    const loadedPlayer = data.player;
+    const player = new playerModule.Player(loadedPlayer.name, loadedPlayer.level,
+        loadedPlayer.max_hp, loadedPlayer.hp, loadedPlayer.max_mp,
+        loadedPlayer.mp, loadedPlayer.attack, loadedPlayer.defence, loadedPlayer.potions,
+        loadedPlayer.known_spells || [], loadedPlayer.xp, loadedPlayer.weapon, loadedPlayer.armor);
+    const loadedWorld = data.world;
+    const grid = [];
+    for (let y = 0; y < loadedWorld.height; y++) {
+        const row = [];
+        for (let x = 0; x < loadedWorld.width; x++) {
+            const tileData = loadedWorld.grid[y][x];
+            const tile = new worldModule.Tile(
+                tileData.name, tileData.description, tileData.danger,
+                tileData.safe, tileData.ascii, tileData.shop);
+            row.push(tile);
+        }
+        grid.push(row);
+    }
+    const world = new worldModule.World(loadedWorld.width, loadedWorld.height, grid, loadedWorld.seed);
+    const game = new gameModule.Game(world, player, data.pos.x, data.pos.y);
+    game.ended = false;
+    game.state = data.state;
+    for (const coords of data.explored) {
+        game._mark_explored(coords.x, coords.y);
+    }
+    return game;
 }
 
 function runGame(game) {
@@ -167,7 +204,7 @@ function gameLoop(game) {
     while (!game.ended) {
         game.actions.available();
         uiRender(game.look())
-        while(game.player.is_alive()) {
+        while (game.player.is_alive()) {
             const input = prompt('> ').trim();
             const acted = game.execute_action(input);
             if (game.ended) {
@@ -193,7 +230,7 @@ function gameLoop(game) {
                     console.log("No saved game found.");
                     continue;
                 } else {
-                    game.copy_from(data);
+                    game = loadFromData(data);
                     break;
                 }
             } else if (input[0] === 'r') {
