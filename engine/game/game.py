@@ -123,7 +123,7 @@ class Game:
         return message
 
     def execute_question(self, answer: bool) -> str:
-        if self.state != GameState.ASKING_QUESTION or not hasattr(self, "pending_move") or not hasattr(self, "pending_weapon"):
+        if self.state != GameState.ASKING_QUESTION:
             return "No question pending."
         if self.pending_move:
             return self.execute_pending_move(answer)

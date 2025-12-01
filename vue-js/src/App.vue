@@ -14,7 +14,7 @@
     </div>
     <div v-else-if="screen === 'game'">
       <pre>{{ gameText }}</pre>
-      <input v-model="userInput" @keyup.enter="handleInput" placeholder="Type command..." />
+      <input v-model="userInput" @keyup.enter="handleInput" placeholder="Type command..."/>
       <button @click="handleInput">Send</button>
       <ActionButtons
           v-if="actions.length"
@@ -50,7 +50,7 @@ export default {
       mapSize: null,
     };
   },
-  components: { ActionButtons },
+  components: {ActionButtons},
   computed: {
     actions() {
       if (this.game && this.game.actions && typeof this.game.actions.available === "function") {
@@ -67,7 +67,7 @@ export default {
       this.mapSize = size;
       this.initGame();
     },
-    initializeGameModule(game){
+    initializeGameModule(game) {
       game.data_loader = {
         load: (loadJsonFile) => {
           const xhr = new XMLHttpRequest();
@@ -93,9 +93,8 @@ export default {
         }
       }
       game.load_configurations("/data/enemies.json");
-      game.save_file = "nodejs_savegame.json";
-      game.save_fn = undefined;
-      game.load_fn = undefined;
+      game.save_fn = this.saveGame;
+      game.load_fn = this.loadGame;
     },
     async initGame() {
       // Replace with AJAX/fetch for browser
@@ -108,9 +107,52 @@ export default {
       this.screen = "game";
       this.renderGame();
     },
+    saveGame() {
+      if (this.game) {
+        localStorage.setItem("savegame", JSON.stringify(this.game.to_dict()));
+        alert("Game saved!");
+      }
+    },
+    loadFromData(data) {
+      const loadedPlayer = data.player;
+      const player = new playerModule.Player(loadedPlayer.name, loadedPlayer.level,
+          loadedPlayer.max_hp, loadedPlayer.hp, loadedPlayer.max_mp,
+          loadedPlayer.mp, loadedPlayer.attack, loadedPlayer.defence, loadedPlayer.potions,
+          loadedPlayer.known_spells || [], loadedPlayer.xp, loadedPlayer.weapon, loadedPlayer.armor);
+      const loadedWorld = data.world;
+      const grid = [];
+      for (let y = 0; y < loadedWorld.height; y++) {
+        const row = [];
+        for (let x = 0; x < loadedWorld.width; x++) {
+          const tileData = loadedWorld.grid[y][x];
+          const tile = new worldModule.Tile(
+              tileData.name, tileData.description, tileData.danger,
+              tileData.safe, tileData.ascii, tileData.shop);
+          row.push(tile);
+        }
+        grid.push(row);
+      }
+      const world = new worldModule.World(loadedWorld.width, loadedWorld.height, grid, loadedWorld.seed);
+      const game = new gameModule.Game(world, player, data.pos.x, data.pos.y);
+      game.ended = false;
+      game.state = data.state;
+      for (const coords of data.explored) {
+        game._mark_explored(coords.x, coords.y);
+      }
+      return game;
+    },
     loadGame() {
       // Implement browser-based load logic
-      alert("Load game not implemented in browser yet.");
+      const saved = localStorage.getItem("savegame");
+      if (saved) {
+        const gameData = JSON.parse(saved);
+        this.game = this.loadFromData(gameData);
+        this.initializeGameModule(this.game);
+        this.screen = "game";
+        this.renderGame();
+      } else {
+        alert("No saved game found.");
+      }
     },
     quitGame() {
       this.screen = "menu";
@@ -131,7 +173,7 @@ export default {
     },
     handleAction(action) {
       if (action.label === "Save Game") {
-        alert("Save Game not implemented.");
+        this.saveGame();
       } else if (action.label === "Load Game") {
         this.loadGame();
       } else {
@@ -201,11 +243,13 @@ export default {
   color: #2c3e50;
   margin-top: 60px;
 }
+
 input {
   margin-top: 10px;
   padding: 5px;
   width: 300px;
 }
+
 button {
   margin: 5px;
   padding: 10px 20px;
