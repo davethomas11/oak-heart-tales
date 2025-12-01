@@ -60,7 +60,7 @@ You can now play the game in your browser using the React interface.
 
 ---
 
-### UI Four - TKinter GUI Version (Experimental)
+### UI Four - TKinter GUI Version 
 
 ```bash
 python3 simple_tk_window.py
@@ -69,6 +69,40 @@ python3 simple_tk_window.py
 Check install.sh for dependencies and installing tkinter on OSX. 
 If you get errors about tkinter not being found, you may need to install it separately.
 AI can help you install tkinter for you specific OS if needed.
+
+---
+
+### UI Five - Node.js Console Version
+Lives in the nodejs folder
+
+Building for Nodes.js -Transcrypt game
+```bash
+cd nodejs
+sh transcrypt.sh
+```
+
+Running game in Node.js
+```bash
+cd nodejs
+node index.js
+```
+
+---
+
+### UI Size - Vue.js fully front-end version
+
+1\. **Transcrypt the game to JavaScript:**
+```bash
+cd vue-ui
+pnpm run build-python-game
+```
+
+2\. **Install dependencies and serve the Vue.js UI:**
+```bash
+cd vue-ui
+pnpm install
+pnpm run serve
+```
 
 ---
 
