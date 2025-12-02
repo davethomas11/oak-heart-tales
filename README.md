@@ -1,5 +1,8 @@
 Oakheart Tales — Tiny Text (Single Player)
 
+Now available as UI version 6 - Vue.js fully front-end version!
+Launchable from pages: https://davethomas11.github.io/oak-heart-tales/
+
 A minimal text-based single-player MUD-like RPG you can run in a terminal.
 
 Features
