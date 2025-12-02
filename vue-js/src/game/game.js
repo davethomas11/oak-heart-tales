@@ -1,4 +1,4 @@
-// Transcrypt'ed from Python, 2025-12-01 10:11:30
+// Transcrypt'ed from Python, 2025-12-01 16:29:56
 var random = {};
 import {AssertionError, AttributeError, BaseException, DeprecationWarning, Exception, IndexError, IterableError, KeyError, NotImplementedError, RuntimeWarning, StopIteration, UserWarning, ValueError, Warning, __JsIterator__, __PyIterator__, __Terminal__, __add__, __and__, __call__, __class__, __envir__, __eq__, __floordiv__, __ge__, __get__, __getcm__, __getitem__, __getslice__, __getsm__, __gt__, __i__, __iadd__, __iand__, __idiv__, __ijsmod__, __ilshift__, __imatmul__, __imod__, __imul__, __in__, __init__, __ior__, __ipow__, __irshift__, __isub__, __ixor__, __jsUsePyNext__, __jsmod__, __k__, __kwargtrans__, __le__, __lshift__, __lt__, __matmul__, __mergefields__, __mergekwargtrans__, __mod__, __mul__, __ne__, __neg__, __nest__, __or__, __pow__, __pragma__, __pyUseJsNext__, __rshift__, __setitem__, __setproperty__, __setslice__, __sort__, __specialattrib__, __sub__, __super__, __t__, __terminal__, __truediv__, __withblock__, __xor__, _sort, abs, all, any, assert, bin, bool, bytearray, bytes, callable, chr, delattr, dict, dir, divmod, filter, float, getattr, hasattr, hex, input, int, isinstance, issubclass, len, list, map, max, min, object, oct, ord, pow, print, property, py_TypeError, py_enumerate, py_iter, py_metatype, py_next, py_reversed, py_typeof, range, repr, round, set, setattr, sorted, str, sum, tuple, zip} from './org.transcrypt.__runtime__.js';
 import {GameLog} from './game_log.js';
@@ -121,7 +121,7 @@ export var Game =  __class__ ('Game', [object], {
 		return message;
 	});},
 	get execute_question () {return __get__ (this, function (self, answer) {
-		if (self.state != GameState.ASKING_QUESTION || !(hasattr (self, 'pending_move')) || !(hasattr (self, 'pending_weapon'))) {
+		if (self.state != GameState.ASKING_QUESTION) {
 			return 'No question pending.';
 		}
 		if (self.pending_move) {
@@ -144,9 +144,6 @@ export var Game =  __class__ ('Game', [object], {
 		}
 	});},
 	get move () {return __get__ (this, function (self, dx, dy, ask) {
-		if (typeof ask == 'undefined' || (ask != null && ask.hasOwnProperty ("__kwargtrans__"))) {;
-			var ask = true;
-		};
 		self.log.add_entry ('Attempting to move from ({},{}) by delta ({},{})'.format (self.x, self.y, dx, dy));
 		var nx = clamp (self.x + dx, 0, self.world.width - 1);
 		var ny = clamp (self.y + dy, 0, self.world.height - 1);
@@ -213,7 +210,7 @@ export var Game =  __class__ ('Game', [object], {
 			var ny = __left0__ [1];
 			delete self.pending_move;
 			self.change_state (GameState.EXPLORING);
-			return self.move (nx - self.x, ny - self.y, __kwargtrans__ ({ask: false}));
+			return self.move (nx - self.x, ny - self.y, false);
 		}
 		else {
 			delete self.pending_move;
@@ -226,7 +223,7 @@ export var Game =  __class__ ('Game', [object], {
 			return self._combat_status ();
 		}
 		if (self.state == GameState.SHOP) {
-			return self.shop ();
+			return self.shop ('');
 		}
 		if (self.state == GameState.ASKING_QUESTION) {
 			return self.question;
@@ -297,12 +294,13 @@ export var Game =  __class__ ('Game', [object], {
 		return 'You leave the shop.\n' + self.look ();
 	});},
 	get shop_enter () {return __get__ (this, function (self) {
-		return 'You enter the shop!\n' + self.shop ();
+		var tile = self.current_tile ();
+		if (!(getattr (tile, 'shop', false))) {
+			return 'There is no shop here.';
+		}
+		return 'You enter the shop!\n' + self.shop ('');
 	});},
 	get shop () {return __get__ (this, function (self, selection) {
-		if (typeof selection == 'undefined' || (selection != null && selection.hasOwnProperty ("__kwargtrans__"))) {;
-			var selection = null;
-		};
 		var tile = self.current_tile ();
 		if (!(getattr (tile, 'shop', false))) {
 			return 'There is no shop here.';
@@ -508,14 +506,11 @@ export var Game =  __class__ ('Game', [object], {
 		var base = (tile.safe ? 0.03 : 0.1);
 		if (random.random () < base) {
 			var wpn = self._random_weapon_for_level ();
-			return self._offer_weapon_pickup (wpn, __kwargtrans__ ({source: 'the area'}));
+			return self._offer_weapon_pickup (wpn, 'the area');
 		}
 		return '';
 	});},
 	get _maybe_offer_weapon () {return __get__ (this, function (self, source) {
-		if (typeof source == 'undefined' || (source != null && source.hasOwnProperty ("__kwargtrans__"))) {;
-			var source = 'a foe';
-		};
 		var drop_chance = 0.25;
 		if (random.random () < drop_chance) {
 			var wpn = self._random_weapon_for_level ();
@@ -550,7 +545,7 @@ export var Game =  __class__ ('Game', [object], {
 				var notes = self.player.add_xp (max (0, int (e.xp_reward)));
 				out_lines.extend (notes);
 				try {
-					self._maybe_offer_weapon (__kwargtrans__ ({source: 'the fallen foe'}));
+					self._maybe_offer_weapon ('the fallen {}'.format (e.py_name));
 				}
 				catch (__except0__) {
 					if (isinstance (__except0__, Exception)) {
@@ -614,7 +609,7 @@ export var Game =  __class__ ('Game', [object], {
 			msgs.append (reg);
 		}
 		if (!(self.player.is_alive ())) {
-			msgs.append (self._end_combat (__kwargtrans__ ({victory: false})));
+			msgs.append (self._end_combat (false));
 		}
 		return msgs;
 	});},
@@ -628,7 +623,7 @@ export var Game =  __class__ ('Game', [object], {
 		e.hp = _clamp_int (e.hp - dmg, 0, e.max_hp);
 		var msgs = ['You strike the {} for {} damage.'.format (e.py_name, dmg)];
 		if (e.hp <= 0) {
-			msgs.append (self._end_combat (__kwargtrans__ ({victory: true})));
+			msgs.append (self._end_combat (true));
 			return '\n'.join ((function () {
 				var __accu0__ = [];
 				for (var m of msgs) {
@@ -685,7 +680,7 @@ export var Game =  __class__ ('Game', [object], {
 			e.hp = _clamp_int (e.hp - dmg, 0, e.max_hp);
 			msgs.append ('You cast {}! It hits {} for {} damage.'.format (spell, e.py_name, dmg));
 			if (e.hp <= 0) {
-				msgs.append (self._end_combat (__kwargtrans__ ({victory: true})));
+				msgs.append (self._end_combat (true));
 				return '\n'.join ((function () {
 					var __accu0__ = [];
 					for (var m of msgs) {

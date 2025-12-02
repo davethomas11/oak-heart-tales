@@ -6,7 +6,8 @@
     "build-python-game": "sh transcrypt.sh && mkdir -p ./src/game ./public/data && cp -r ../engine/game/__target__/* ./src/game/ && cp -r ../data/* ./public/data/",
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build",
-    "lint": "vue-cli-service lint"
+    "lint": "vue-cli-service lint",
+    "copy-build-to-pages": "rm -rf ../oak-heart-tales.github.io && cp -r ./dist ../oak-heart-tales.github.io"
   },
   "dependencies": {
     "core-js": "^3.8.3",

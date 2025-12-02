@@ -139,7 +139,7 @@ class Game:
         else:
             return "No question pending."
 
-    def move(self, dx: int, dy: int, ask: bool = True) -> str:
+    def move(self, dx: int, dy: int, ask: bool) -> str:
         self.log.add_entry(f"Attempting to move from ({self.x},{self.y}) by delta ({dx},{dy})")
         nx = clamp(self.x + dx, 0, self.world.width - 1)
         ny = clamp(self.y + dy, 0, self.world.height - 1)
@@ -190,7 +190,7 @@ class Game:
             nx, ny = self.pending_move
             del self.pending_move
             self.change_state(GameState.EXPLORING)
-            return self.move(nx - self.x, ny - self.y, ask=False)
+            return self.move(nx - self.x, ny - self.y, False)
         else:
             del self.pending_move
             self.change_state(GameState.EXPLORING)
@@ -200,7 +200,7 @@ class Game:
         if self.state == GameState.COMBAT:
             return self._combat_status()
         if self.state == GameState.SHOP:
-            return self.shop()
+            return self.shop("")
         if self.state == GameState.ASKING_QUESTION:
             return self.question
         if self.state == GameState.GAME_OVER:
@@ -264,9 +264,12 @@ class Game:
         return "You leave the shop.\n" + self.look()
 
     def shop_enter(self) -> str:
-        return "You enter the shop!\n" + self.shop()
+        tile = self.current_tile()
+        if not getattr(tile, "shop", False):
+            return "There is no shop here."
+        return "You enter the shop!\n" + self.shop("")
 
-    def shop(self, selection: str = None) -> str:
+    def shop(self, selection: str) -> str:
 
         tile = self.current_tile()
         if not getattr(tile, "shop", False):
@@ -502,10 +505,10 @@ class Game:
         base = 0.03 if tile.safe else 0.10
         if random.random() < base:
             wpn = self._random_weapon_for_level()
-            return self._offer_weapon_pickup(wpn, source="the area")
+            return self._offer_weapon_pickup(wpn, "the area")
         return ""
 
-    def _maybe_offer_weapon(self, source: str = "a foe") -> None:
+    def _maybe_offer_weapon(self, source) -> None:
         drop_chance = 0.25
         if random.random() < drop_chance:
             wpn = self._random_weapon_for_level()
@@ -546,7 +549,7 @@ class Game:
                 notes = self.player.add_xp(max(0, int(e.xp_reward)))
                 out_lines.extend(notes)
                 try:
-                    self._maybe_offer_weapon(source="the fallen foe")
+                    self._maybe_offer_weapon(f"the fallen {e.name}")
                 except Exception:
                     pass
         else:
@@ -600,7 +603,7 @@ class Game:
             msgs.append(reg)
         # Check death
         if not self.player.is_alive():
-            msgs.append(self._end_combat(victory=False))
+            msgs.append(self._end_combat(False))
         return msgs
 
     # --- Player combat actions ---
@@ -613,7 +616,7 @@ class Game:
         e.hp = _clamp_int(e.hp - dmg, 0, e.max_hp)
         msgs = [f"You strike the {e.name} for {dmg} damage."]
         if e.hp <= 0:
-            msgs.append(self._end_combat(victory=True))
+            msgs.append(self._end_combat(True))
             return "\n".join([m for m in msgs if m])
         # Enemy responds
         msgs.extend(self._enemy_turn())
@@ -649,7 +652,7 @@ class Game:
             e.hp = _clamp_int(e.hp - dmg, 0, e.max_hp)
             msgs.append(f"You cast {spell}! It hits {e.name} for {dmg} damage.")
             if e.hp <= 0:
-                msgs.append(self._end_combat(victory=True))
+                msgs.append(self._end_combat(True))
                 return "\n".join([m for m in msgs if m])
         # Enemy turn
         msgs.extend(self._enemy_turn())

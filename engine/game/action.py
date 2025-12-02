@@ -199,10 +199,10 @@ class _Actions:
 
             # Build exec map for exploration
             self._exec_map = {
-                "move_n": lambda: g.move(0, -1),
-                "move_s": lambda: g.move(0, 1),
-                "move_w": lambda: g.move(-1, 0),
-                "move_e": lambda: g.move(1, 0),
+                "move_n": lambda: g.move(0, -1, True),
+                "move_s": lambda: g.move(0, 1, True),
+                "move_w": lambda: g.move(-1, 0, True),
+                "move_e": lambda: g.move(1, 0, True),
                 "look": g.look,
                 "map": g.map,
                 "stats": g.stats,

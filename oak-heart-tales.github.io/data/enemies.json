@@ -1,0 +1,155 @@
+[
+  {
+    "name": "Rat",
+    "ascii": "  (`-`)\n /     \\\n/       \\",
+    "base_hp": 6,
+    "base_defense": 1,
+    "base_attack": 3,
+    "xp_reward": 15,
+    "gold_reward": 5
+  },
+  {
+    "name": "Goblin",
+    "ascii": "  <:o)\n /| |\\\n /   \\",
+    "base_hp": 10,
+    "base_defense": 2,
+    "base_attack": 4,
+    "xp_reward": 25,
+    "gold_reward": 8
+  },
+  {
+    "name": "Wolf",
+    "ascii": "/\\_/\\\n( o.o )\n > ^ <",
+    "base_hp": 12,
+    "base_defense": 2,
+    "base_attack": 5,
+    "xp_reward": 30,
+    "gold_reward": 10
+  },
+  {
+    "name": "Skeleton",
+    "ascii": "  [¬º-°]¬\n   /|\\\n   / \\",
+    "base_hp": 14,
+    "base_defense": 3,
+    "base_attack": 6,
+    "xp_reward": 40,
+    "gold_reward": 12
+  },
+  {
+    "name": "Bandit",
+    "ascii": "(-_-)\n /|\\======\n / \\",
+    "base_hp": 16,
+    "base_defense": 3,
+    "base_attack": 7,
+    "xp_reward": 45,
+    "gold_reward": 15
+  },
+  {
+    "name": "Troll",
+    "ascii": "ʕ •ᴥ•ʔ\n /|\\\n / \\",
+    "base_hp": 22,
+    "base_defense": 5,
+    "base_attack": 9,
+    "xp_reward": 60,
+    "gold_reward": 20
+  },
+  {
+    "name": "Orc",
+    "ascii": " (°□°)\n /|\\\n / \\",
+    "base_hp": 18,
+    "base_defense": 4,
+    "base_attack": 8,
+    "xp_reward": 50,
+    "gold_reward": 18
+  },
+  {
+    "name": "Slime",
+    "ascii": "  ~( oo )~\n   /    \\\n  /      \\",
+    "base_hp": 8,
+    "base_defense": 1,
+    "base_attack": 2,
+    "xp_reward": 20,
+    "gold_reward": 6
+  },
+  {
+    "name": "Vampire",
+    "ascii": " ///(^v^)\\\n   /|\\\n   / \\",
+    "base_hp": 20,
+    "base_defense": 4,
+    "base_attack": 10,
+    "xp_reward": 70,
+    "gold_reward": 25
+  },
+  {
+    "name": "Dragon",
+    "ascii": "/\\^/\\\n( o.o )\n > v <",
+    "base_hp": 40,
+    "base_defense": 8,
+    "base_attack": 15,
+    "xp_reward": 200,
+    "gold_reward": 100
+  },
+  {
+    "name": "Imp",
+    "ascii": "  >:)\n /|\\\n / \\",
+    "base_hp": 9,
+    "base_defense": 2,
+    "base_attack": 4,
+    "xp_reward": 22,
+    "gold_reward": 7
+  },
+  {
+    "name": "Giant Spider",
+    "ascii": " /\\(o_o)/\\\n   /|\\\n   / \\",
+    "base_hp": 15,
+    "base_defense": 3,
+    "base_attack": 6,
+    "xp_reward": 35,
+    "gold_reward": 13
+  },
+  {
+    "name": "Witch",
+    "ascii": " <(^_^)>\n  /|\\\n  / \\",
+    "base_hp": 18,
+    "base_defense": 4,
+    "base_attack": 8,
+    "xp_reward": 55,
+    "gold_reward": 20
+  },
+  {
+    "name": "Zombie",
+    "ascii": "  [o_o]\n   /|\\\n   / \\",
+    "base_hp": 14,
+    "base_defense": 3,
+    "base_attack": 5,
+    "xp_reward": 38,
+    "gold_reward": 12
+  },
+  {
+    "name": "Minotaur",
+    "ascii": "  (°_°)\n  /|\\\n  / \\",
+    "base_hp": 30,
+    "base_defense": 6,
+    "base_attack": 12,
+    "xp_reward": 120,
+    "gold_reward": 60
+  },
+  {
+    "name": "Hydra",
+    "ascii": "  ~<:o)~~~~\n   /|\\\n   / \\",
+    "base_hp": 35,
+    "base_defense": 7,
+    "base_attack": 14,
+    "xp_reward": 150,
+    "gold_reward": 80
+  },
+  {
+    "name": "Sorceress",
+    "ascii": "  <(^_^<)\n   /|\\\n   / \\",
+    "base_hp": 25,
+    "base_defense": 5,
+    "base_attack": 10,
+    "xp_reward": 90,
+    "gold_reward": 40
+  }
+]
