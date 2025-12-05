@@ -9,7 +9,7 @@ html = html.replace(/<script type="(text\/plain|application\/json)" src="([^"]+)
     if (type === 'application/json') {
         // Minify JSON content
         return `<script type="text/javascript">\n
-            window.game_data_files["${src}"] = \`\n${JSON.stringify(JSON.parse(content))}\n\`</script>`;
+            window.game_data_files["${src}"] = "${JSON.stringify(JSON.parse(content)).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"</script>`;
     } else if (type === 'text/plain') {
         // Escape backticks and backslashes in plain text
         const escapedContent = content.replace(/\\/g, '\\\\').replace(/`/g, '\\`');

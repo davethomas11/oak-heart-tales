@@ -28,9 +28,12 @@
 
 
     <script>
+        var playerModule = require("player");
+        var worldModule = require("world");
+        var gameModule = require("game");
+
         function newGame(mapSize) {
-            // Replace with AJAX/fetch for browser
-            const tileset = window.game_data_files["../data/tileset.json"];
+            const tileset = JSON.parse(window.game_data_files["../data/tileset.json"]);
             const player = new playerModule.Player("Hero", 1, 25, 25, 5, 5, 2, 1, 3, [], 0, null, null);
             const grid = generateRandomTilesetGrid(mapSize, tileset);
             const world = new worldModule.World(mapSize, mapSize, grid, getSeedFromGeneratedGrid(grid));
@@ -39,10 +42,43 @@
             return game
         }
 
+        function getSeedFromGeneratedGrid(grid) {
+            const str = grid.flat().map(tile => tile.name || tile.py_name).join("-");
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                hash = ((hash << 5) - hash) + str.charCodeAt(i);
+                hash |= 0;
+            }
+            return Math.abs(hash);
+        }
+
+        function generateRandomTilesetGrid(size, tilesetData) {
+            const village = tilesetData["village"];
+            const tileset = tilesetData["tiles"];
+            const grid = [];
+            for (let y = 0; y < size; y++) {
+                const row = [];
+                for (let x = 0; x < size; x++) {
+                    const tileKeys = Object.keys(tileset);
+                    const randomKey = tileKeys[Math.floor(Math.random() * tileKeys.length)];
+                    const tileData = tileset[randomKey];
+                    const tile = new worldModule.Tile(tileData.name, tileData.description, tileData.danger, tileData.safe, tileData.ascii);
+                    row.push(tile);
+                }
+                grid.push(row);
+            }
+            const center = Math.floor(size / 2);
+            grid[center][center] = new worldModule.Tile(
+                village.name, village.description, village.danger,
+                village.safe, village.ascii, village.shop
+            );
+            return grid;
+        }
+
        function initializeGameModule(game) {
             game.data_loader = {
                 load: (loadJsonFile) => {
-                    return window.game_data_files[loadJsonFile];
+                    return JSON.parse(window.game_data_files[loadJsonFile]);
                 }
             }
             game.ascii_loader = {
@@ -58,14 +94,17 @@
         document.addEventListener("DOMContentLoaded", async () => {
             const game = await newGame(20);
             window.game = game; // Expose game globally for debugging
-            const gameContainer = document.getElementById("game-container");
+            const gameText = document.getElementById("game-text");
             this.gameText = this.game.look();
-            gameContainer.innerHTML = this.game.look();
+            gameText.innerHTML = this.game.look();
         });
     </script>
 </head>
 <body>
 <div id="game-container">
+    <pre id="game-text">
+        Loading game...
+    </pre>
     <!-- Game will render here -->
 </div>
 </body>

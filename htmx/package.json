@@ -6,8 +6,9 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "transcrypt": "sh transcrypt.sh",
-    "compile": "babel js/*.js --out-dir dist",
-    "minify": "terser dist/js/*.js --compress --mangle --output game.js",
+    "compile": "mkdir -p dist && babel js/*.js --out-dir dist",
+    "browserify": "browserify dist/js/*.js -r ./dist/js/game.js:game -r ./dist/js/player.js:player -r ./dist/js/world.js:world -o browser/js/bundle.js",
+    "minify": "terser browser/js/bundle.js --compress --mangle --output game.js",
     "inline": "inliner ./index.htmx.html > .build-file-htmx-oakheart.html",
     "embed": "node inline-resources.js",
     "rejig": "npm run inline && npm run embed",
@@ -17,7 +18,15 @@
   "license": "ISC",
   "dependencies": {
     "babel": "^5.8.38",
+    "browserify": "^17.0.1",
     "inliner": "^1.13.1",
     "terser": "^5.44.1"
+  },
+  "devDependencies": {
+    "babel-core": "^6.26.3",
+    "babel-loader": "^10.0.0",
+    "babel-polyfill": "^6.26.0",
+    "babel-preset-es2015": "^6.24.1",
+    "babel-preset-stage-0": "^6.24.1"
   }
 }
