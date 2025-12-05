@@ -37,6 +37,7 @@ class Game:
         self.pending_move = None
         self.question = ""
         self.pending_weapon = None
+        self.pending_move = None
         self.ended = False
         self.log = GameLog()
         self.shop_items = None
@@ -148,6 +149,7 @@ class Game:
 
         # Before moving, warn the player if the destination is very dangerous
         dest_tile = self.world.get_tile(nx, ny)
+        dest_tile.weather.change()
         try:
             danger_threshold = 0.6  # warn for risky areas
             if (not dest_tile.safe and dest_tile.danger >= danger_threshold) and ask:
@@ -160,17 +162,25 @@ class Game:
             pass
 
         self.change_state(GameState.EXPLORING)
-        self.x, self.y = nx, ny
-        # mark explored when arriving
-        self._mark_explored(self.x, self.y)
-        tile = self.current_tile()
-        art = render_room(tile, self.ascii_loader) if self.ascii_tiles else ""
-        desc = f"{art}\nYou arrive at {tile.name}. {tile.description}"
-        if tile.shop:
-            desc += "\nYou see a merchant here (type shop to enter)."
+
+        # Chance to get stuck if movement penalty applies (e\.g\. mud, swamp, etc\.)
+        weather_move_mod = self.current_tile().weather.effect().get("movement_penalty", 0)
+        if weather_move_mod > 0 and random.random() < min(0.5, 0.1 * weather_move_mod):
+            desc = f"f{self.current_tile().weather.stuck_message()} and can't move this turn!"
+        else:
+            self.x, self.y = nx, ny
+            # mark explored when arriving
+            self._mark_explored(self.x, self.y)
+            tile = self.current_tile()
+            art = render_room(tile, self.ascii_loader) if self.ascii_tiles else ""
+            desc = f"{art}\nYou arrive at {tile.name}. {tile.description}"
+            if tile.shop:
+                desc += "\nYou see a merchant here (type shop to enter)."
 
         # Roll encounter -> switch to action-driven combat
-        if not tile.safe and random.random() < tile.danger:
+        tile = self.current_tile()
+        weather_enc_mod = tile.weather.effect().get("encounter_rate", 0.0)
+        if not tile.safe and random.random() < tile.danger + weather_enc_mod:
             enemy = generate_enemy(self.enemy_archetypes, self.player.level, self.x, self.y)
             intro = self.enter_combat(enemy)
             return desc + "\n\n" + intro
@@ -288,7 +298,7 @@ class Game:
 
         if not available:
             return "The merchant smiles: 'You've learned all I can teach you for now.'"
-        if selection is None:
+        if selection is None or selection == "":
             lines = ["\nMerchant's Caravan — Spells for sale:"]
             for idx, name in enumerate(available, 1):
                 lines.append(f"  {idx}. {name} — {spells[name]}g (MP {SPELLS[name]['mp']})")
@@ -503,7 +513,9 @@ class Game:
     def _maybe_field_find(self, tile: Tile) -> str:
         # Higher chance in dangerous areas; rarely in towns
         base = 0.03 if tile.safe else 0.10
-        if random.random() < base:
+        # Lower chance if visibility is bad for tile.effect()
+        visibility_mod = tile.weather.effect().get("visibility", 1.0)
+        if random.random() < base * visibility_mod:
             wpn = self._random_weapon_for_level()
             return self._offer_weapon_pickup(wpn, "the area")
         return ""

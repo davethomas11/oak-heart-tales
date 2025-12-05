@@ -1,0 +1,23 @@
+{
+  "name": "htmx-version-oakheart",
+  "version": "1.0.0",
+  "description": "To install htmx in your project, follow these steps:",
+  "main": "build.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "transcrypt": "sh transcrypt.sh",
+    "compile": "babel js/*.js --out-dir dist",
+    "minify": "terser dist/js/*.js --compress --mangle --output game.js",
+    "inline": "inliner ./index.htmx.html > .build-file-htmx-oakheart.html",
+    "embed": "node inline-resources.js",
+    "rejig": "npm run inline && npm run embed",
+    "build": "sh build.sh"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "babel": "^5.8.38",
+    "inliner": "^1.13.1",
+    "terser": "^5.44.1"
+  }
+}

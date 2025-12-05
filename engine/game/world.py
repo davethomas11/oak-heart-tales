@@ -1,5 +1,6 @@
 import math
 import random
+from .weather import Weather
 
 class Tile:
     def __init__(
@@ -17,6 +18,7 @@ class Tile:
         self.safe = safe
         self.ascii = ascii
         self.shop = shop
+        self.weather = Weather()
 
     def to_dict(self) -> dict:
         return {
