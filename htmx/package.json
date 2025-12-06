@@ -9,7 +9,7 @@
     "compile": "mkdir -p dist && babel js/*.js --out-dir dist",
     "browserify": "browserify dist/js/*.js -r ./dist/js/game.js:game -r ./dist/js/player.js:player -r ./dist/js/world.js:world -o browser/js/bundle.js",
     "minify": "terser browser/js/bundle.js --compress --mangle --output game.js",
-    "inline": "inliner ./index.htmx.html > .build-file-htmx-oakheart.html",
+    "inline": "inliner --skip-absolute-urls ./index.htmx.html > .build-file-htmx-oakheart.html",
     "embed": "node inline-resources.js",
     "rejig": "npm run inline && npm run embed",
     "build": "sh build.sh"
