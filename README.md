@@ -92,7 +92,7 @@ node index.js
 
 ---
 
-### UI Size - Vue.js fully front-end version
+### UI Six - Vue.js fully front-end version
 
 1\. **Transcrypt the game to JavaScript:**
 ```bash
@@ -106,6 +106,20 @@ cd vue-ui
 pnpm install
 pnpm run serve
 ```
+
+---
+
+### UI Seven - HTMX fully front-end single file version
+
+To build the htmx version, run:
+```
+source venv/bin/activate
+pip install transcrypt
+cd htmx
+sh build.sh
+```
+
+Or access the committed `game.html` file directly in a browser.
 
 ---
 
