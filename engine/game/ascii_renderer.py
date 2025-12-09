@@ -17,15 +17,14 @@ def _box(text: str, title: str = None) -> str:
 
 def render_room(tile: Tile, text_loader) -> str:
     # Prefer an explicit ascii filename in the tile; else try normalized name
-    weather = f"\n Current weather: {tile.weather.describe()}"
     try:
         fname = tile.ascii
         if not fname:
             fname = tile.name.lower().replace(" ", "_") + ".txt"
         art = text_loader.load(fname)
         if art:
-            return art + weather
+            return art
         # Fallback box
-        return _box(weather, title=tile.name)
+        return _box('[ --- ]', title=tile.name)
     except:
-        return _box(weather, title=tile.name)
+        return _box('[ --- ]', title=tile.name)

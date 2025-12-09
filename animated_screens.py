@@ -240,7 +240,7 @@ def level_up_screen(new_level: int, width: int = 90):
     # Flavor text
     animate("Your power surges through you...", style="pulse", color_code=C.BR_WHITE, speed=0.05, loops=3)
     animate("New abilities unlocked!", style="typewriter", color_code=C.BR_MAGENTA, speed=0.02)
-    
+
 def game_over_screen(width: int = 90):
     clear_screen()
 

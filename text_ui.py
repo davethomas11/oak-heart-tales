@@ -43,6 +43,15 @@ def pad_line(s, w):
     """Compatibility shim using ANSI-aware padding/truncation."""
     return pad_line_vis(s, w)
 
+def center_line(s, w):
+    """Center a possibly-colored string to visible width w."""
+    slen = visible_len(s)
+    if slen >= w:
+        return pad_line(s, w)
+    left = (w - slen) // 2
+    right = w - slen - left
+    return " " * left + s + " " * right
+
 
 def print_game_ui(
         get_room_ascii,
@@ -163,14 +172,22 @@ def print_game_ui(
         text = f"{label}: {cur}/{mx}"
         return f"{pad_line(text, 12)} {bar}"
 
-    def draw_panel(title, lines, w):
+    def draw_panel(title, lines, w, subtitle=None):
         """Return list of strings representing a bordered panel."""
         title_str = f" {title} "
         if use_color:
             title_str = color(title_str, C.BOLD + C.YELLOW)
-        top = "┌" + pad_line(title_str + "─" * (w - visible_len(title_str) - 2), w - 2) + "┐"
-        body = [f"│{pad_line(line, w - 2)}│" for line in lines]
-        bottom = "└" + ("─" * (w - 2)) + "┘"
+        if subtitle:
+            if use_color:
+                subtitle = color(subtitle, C.BOLD + C.GREEN)
+            title_str += f"{subtitle} "
+
+        border_color = C.CYAN if use_color else ""
+        border_reset = C.RESET if use_color else ""
+        top = f"{border_color}┌{pad_line(title_str + border_color + '─' * (w - visible_len(title_str) - 2), w - 2)}┐{border_reset}"
+        body = [f"{border_color}│{border_reset}{pad_line(line, w - 2)}{border_color}│{border_reset}" for line in lines]
+        bottom = f"{border_color}└{'─' * (w - 2)}┘{border_reset}"
+
         return [top] + body + [bottom]
 
     def join_columns(left_lines, right_lines):
@@ -188,7 +205,7 @@ def print_game_ui(
     bottom_h = height - top_h
 
     # ------------- Room Panel -------------
-    room_art_raw = get_room_ascii()
+    room_art_raw = state.get("room_art") or get_room_ascii()
     # Normalize room art to lines
     if isinstance(room_art_raw, str):
         # Ensure squarish formatting: strip and split
@@ -199,22 +216,23 @@ def print_game_ui(
         room_lines_raw = ["[room]"]
 
     # Wrap each room line if it exceeds room_w - 2
-    room_lines_raw = [l if len(l) <= room_w - 2 else "\n".join(wrap_text(l, room_w - 2)) for l in room_lines_raw]
-    # Flatten in case any lines were split into multiple
+    # Center each room line if it is shorter than room_w - 2
     flat_room_lines = []
     for l in room_lines_raw:
         if isinstance(l, str):
-            flat_room_lines.extend(l.splitlines())
+            centered_lines = [center_line(line, room_w - 2) for line in l.splitlines()]
+            flat_room_lines.extend(centered_lines)
         else:
-            flat_room_lines.append(str(l))
+            flat_room_lines.append(center_line(str(l), room_w - 2))
 
     room_lines_raw = flat_room_lines
+    room_lines_raw.insert(0, "")
     # Fit the room into a panel height (top_h - 3 border lines for panel)
     room_inner_h = max(3, top_h - 3)
     # Choose a target art height that respects aspect (square-ish)
     # We'll just clamp and pad as needed.
     room_lines = safe_lines(room_lines_raw, w=room_w - 2, h=room_inner_h)
-    room_panel = draw_panel("Room", room_lines, w=room_w)
+    room_panel = draw_panel("Area:", room_lines, w=room_w, subtitle=state['room'])
 
     # ------------- Player / Combat Panel -------------
     stats_lines = []
@@ -273,6 +291,17 @@ def print_game_ui(
                 centered = wl.center(side_w - 2)
                 wrapped_map_lines.append(centered)
         combat_lines = safe_lines(wrapped_map_lines, w=side_w - 2, h=14)
+        combat_lines.append("")
+
+        # Add weather and tile description
+        tile_desc = state.get("room_description", "Unknown area.")
+        area_tile = color("Area Info:", C.MAGENTA) if use_color else "Area Info:"
+        combat_lines.append(pad_line(area_tile, side_w - 2))
+        for l in wrap_text(tile_desc, side_w - 2):
+            combat_lines.append(pad_line(l, side_w - 2))
+        weather = state.get("weather", "Unknown")
+        weather_title = color("Weather:", C.MAGENTA) if use_color else "Weather:"
+        combat_lines.append(pad_line(f"{weather_title}: {weather}", side_w - 2))
 
 
     # Combine stats + combat

@@ -152,6 +152,7 @@ class Game:
         ny = clamp(self.y + dy, 0, self.world.height - 1)
         if nx == self.x and ny == self.y:
             self.event_manager.emit(GameEvent(GameEvent.CANT_MOVE, {
+                "message": "You can't go that way.",
                 "reason": "edge_of_world",
                 "from": (self.x, self.y),
                 "to": (nx, ny)}))
@@ -161,6 +162,7 @@ class Game:
         dest_tile = self.world.get_tile(nx, ny)
         dest_tile.weather.change()
         self.event_manager.emit(GameEvent(GameEvent.WEATHER_CHANGED, {
+            "message": f"The weather at f{dest_tile.name} has changed to f{dest_tile.weather.current}.",
             "position": (nx, ny),
             "weather": dest_tile.weather.current
         }))
@@ -198,6 +200,8 @@ class Game:
                 "from": (self.x, self.y),
                 "tile_name": dest_tile.name
             }))
+            prev_tile = self.current_tile()
+            prev_tile.rested = False  # reset rested status on leaving
             self.x, self.y = nx, ny
             # mark explored when arriving
             self._mark_explored(self.x, self.y)
@@ -259,6 +263,7 @@ class Game:
             return "Game Over. You can load a saved game or restart."
         t = self.current_tile()
         art = render_room(t, self.ascii_loader) if self.ascii_tiles else ""
+        art += f"\n Current weather: {t.weather.describe()}"
         return f"{art}\n{t.name}: {t.description} \n{'You see a merchant here (type shop to enter).' if t.shop else ''}"
 
     # --- Actions facade for interfaces ---
@@ -314,6 +319,7 @@ class Game:
     def shop_exit(self) -> str:
         self.change_state(GameState.EXPLORING)
         self.event_manager.emit(GameEvent(GameEvent.EXITED_SHOP, {
+            "message": "Player exited the shop.",
             "position": (self.x, self.y),
             "tile_name": self.current_tile().name
         }))
@@ -324,6 +330,7 @@ class Game:
         if not getattr(tile, "shop", False):
             return "There is no shop here."
         self.event_manager.emit(GameEvent(GameEvent.ENTERED_SHOP, {
+            "message": "Player entered the shop.",
             "position": (self.x, self.y),
             "tile_name": tile.name
         }))
@@ -346,13 +353,11 @@ class Game:
         self.change_state(GameState.SHOP)
 
         if not available:
-            self.event_manager.emit(GameEvent(GameEvent.SHOP_EMPTY))
+            self.event_manager.emit(GameEvent(GameEvent.SHOP_EMPTY, {
+                "message": "Shop is empty, all spells learned."
+            }))
             return "The merchant smiles: 'You've learned all I can teach you for now.'"
         if selection is None or selection == "":
-            self.event_manager.emit(GameEvent(GameEvent.AVAILABLE_SHOP_ITEMS, {
-                "items": self.shop_items,
-                "player_gold": self.player.gold
-            }))
             lines = ["\nMerchant's Caravan — Spells for sale:"]
             for idx, name in enumerate(available, 1):
                 lines.append(f"  {idx}. {name} — {spells[name]}g (MP {SPELLS[name]['mp']})")
@@ -371,6 +376,7 @@ class Game:
                     break
         if not sel:
             self.event_manager.emit(GameEvent(GameEvent.SHOP_ITEM_NOT_FOUND, {
+                "message": f"Shop item not found: {selection}",
                 "selection": selection,
                 "available_items": self.shop_items
             }))
@@ -378,6 +384,7 @@ class Game:
         price = spells[sel]
         if self.player.gold < price:
             self.event_manager.emit(GameEvent(GameEvent.SHOP_NOT_ENOUGH_GOLD, {
+                "message": f"Not enough gold for {sel}.",
                 "selection": sel,
                 "price": price,
                 "player_gold": self.player.gold
@@ -386,6 +393,7 @@ class Game:
         self.player.gold -= price
         self.player.known_spells = list(self.player.known_spells) + [sel]
         self.event_manager.emit(GameEvent(GameEvent.BOUGHT_ITEM, {
+            "message": f"Player bought spell {sel}.",
             "spell": sel,
             "price": price,
             "player_gold": self.player.gold
@@ -394,27 +402,39 @@ class Game:
 
     def rest(self) -> str:
         tile = self.current_tile()
+        if hasattr(tile, "rested") and tile.rested:
+            self.event_manager.emit(GameEvent(GameEvent.CANT_REST, {
+                "message": "Player attempted to rest again at the same location. Can only rest once per location visit.",
+                "position": (self.x, self.y),
+                "tile_name": tile.name
+            }))
+            return "You have already rested here. Try moving to another location."
         if tile.safe:
             healed = self.player.heal(8 + self.player.level * 2)
             # chance to receive a free potion in town occasionally
             if random.random() < 0.15:
                 self.player.potions += 1
                 self.event_manager.emit(GameEvent(GameEvent.RESTED, {
+                    "message": "Player rested in village.",
                     "healed": healed,
                     "received_potion": True,
                     "type": "village_rest"
                 }))
+                tile.rested = True
                 return f"You rest at the village and heal {healed} HP. The healer gifts you a potion."
             self.event_manager.emit(GameEvent(GameEvent.RESTED, {
+                "message": f"You rest at the village and heal {healed} HP.",
                 "healed": healed,
                 "received_potion": False,
                 "type": "village_rest"
             }))
+            tile.rested = True
             return f"You rest at the village and heal {healed} HP."
         else:
             healed = self.player.heal(4 + self.player.level)
             note = f"You rest cautiously and heal {healed} HP."
             self.event_manager.emit(GameEvent(GameEvent.RESTED, {
+                "message": f"You rest cautiously and heal {healed} HP.",
                 "healed": healed,
                 "type": "wild_rest"
             }))
@@ -424,10 +444,13 @@ class Game:
                 note += "\nYou are ambushed in your sleep!"
                 intro = self.enter_combat(enemy)
                 self.event_manager.emit(GameEvent(GameEvent.REST_INTERRUPTED, {
+                    "message": f"Rest interrupted by ambush from {enemy.name}.",
                     "position": (self.x, self.y),
                     "enemy_name": enemy.name
                 }))
+                tile.rested = True
                 return note + "\n\n" + intro
+            tile.rested = True
             return note
 
     def debug_pos(self) -> str:
@@ -625,6 +648,7 @@ class Game:
         self._enemy_def_turns = 0
         intro = f"A {enemy.name} appears! Prepare for battle."
         self.event_manager.emit(GameEvent(GameEvent.ENTERED_COMBAT, {
+            "message": "Player has entered combat.",
             "position": (self.x, self.y),
             "location": self.current_tile().name,
             "enemy_name": enemy.name,
@@ -665,12 +689,14 @@ class Game:
                     self._maybe_offer_weapon(f"the fallen {e.name}")
                     if self.pending_weapon:
                         self.event_manager.emit(GameEvent(GameEvent.FOUND_WEAPON, {
+                            "message": f"Player found weapon {self.pending_weapon} from defeated {e.name}.",
                             "position": (self.x, self.y),
                             "weapon": self.pending_weapon
                         }))
                 except Exception:
                     pass
                 self.event_manager.emit(GameEvent(GameEvent.EXITED_COMBAT, {
+                    "message": "Player won combat.",
                     "position": (self.x, self.y),
                     "location": self.current_tile().name,
                     "victory": True,
@@ -682,6 +708,7 @@ class Game:
                 }))
         else:
             self.event_manager.emit(GameEvent(GameEvent.EXITED_COMBAT, {
+                "message": "Player was defeated in combat.",
                 "position": (self.x, self.y),
                 "location": self.current_tile().name,
                 "victory": False,
@@ -719,6 +746,7 @@ class Game:
             healed = self.player.heal(self._player_regen_amount)
             self._player_regen_turns -= 1
             self.event_manager.emit(GameEvent(GameEvent.REGEN, {
+                "message": f"Regen restores {healed} HP for player.",
                 "healed": healed,
                 "turns_left": self._player_regen_turns
             }))
@@ -734,6 +762,7 @@ class Game:
             msgs.append(f"{e.name} is stunned and cannot act!")
             self._enemy_stunned_turns -= 1
             self.event_manager.emit(GameEvent(GameEvent.ENEMY_STUNNED, {
+                "message": f"{e.name} is stunned for {self._enemy_stunned_turns} more turns.",
                 "enemy_name": e.name,
                 "turns_left": self._enemy_stunned_turns
             }))
@@ -744,6 +773,7 @@ class Game:
             self.player.hp = _clamp_int(self.player.hp - dmg, 0, self.player.max_hp)
             msgs.append(f"{e.name} strikes you for {dmg} damage.")
             self.event_manager.emit(GameEvent(GameEvent.ENEMY_ATTACKED, {
+                "message": f"{e.name} attacked player for {dmg} damage.",
                 "enemy_name": e.name,
                 "damage": dmg,
                 "player_hp": self.player.hp
@@ -755,6 +785,7 @@ class Game:
                 msgs.append("The enemy's defenses recover.")
                 self._enemy_def_down = 0
                 self.event_manager.emit(GameEvent(GameEvent.ENEMY_RECOVERED, {
+                    "message": "Enemy defense debuff has worn off.",
                     "enemy_name": e.name,
                     "effect": "defense_recovered"
                 }))
@@ -776,17 +807,18 @@ class Game:
         dmg = calc_damage(int(self.player.total_attack), eff_def)
         e.hp = _clamp_int(e.hp - dmg, 0, e.max_hp)
         msgs = [f"You strike the {e.name} for {dmg} damage."]
+        self.event_manager.emit(GameEvent(GameEvent.ATTACKED, {
+            "message": f"Player attacked {e.name} for {dmg} damage.",
+            "enemy_name": e.name,
+            "damage": dmg,
+            "enemy_hp": e.hp
+        }))
         if e.hp <= 0:
             msgs.append(self._end_combat(True))
             return "\n".join([m for m in msgs if m])
         # Enemy responds
         msgs.extend(self._enemy_turn())
         msgs.append(self._combat_status())
-        self.event_manager.emit(GameEvent(GameEvent.ATTACKED, {
-            "enemy_name": e.name,
-            "damage": dmg,
-            "enemy_hp": e.hp
-        }))
         return "\n".join([m for m in msgs if m])
 
     def combat_cast(self, spell: str) -> str:
@@ -797,6 +829,7 @@ class Game:
         cost = int(SPELLS[spell]["mp"])
         if self.player.mp < cost:
             self.event_manager.emit(GameEvent(GameEvent.OOM, {
+                "message": "Not enough MP to cast spell.",
                 "spell": spell,
                 "required_mp": cost,
                 "current_mp": self.player.mp,
@@ -811,6 +844,7 @@ class Game:
             healed = self.player.heal(power + self.player.level)
             msgs.append(f"You cast Heal and restore {healed} HP.")
             self.event_manager.emit(GameEvent(GameEvent.CAST_SPELL, {
+                "message": f"Player cast Heal to restore {healed} HP.",
                 "spell": spell,
                 "healed": healed,
                 "player_hp": self.player.hp,
@@ -820,11 +854,12 @@ class Game:
         elif spell == "Regen":
             self._player_regen_turns = 3
             self._player_regen_amount = power
-            msgs.append(f"You cast Regen. You'll recover {power} HP for 3 turns.")
+            msgs.append(f"You cast Regen. You'll recover {power} HP for {self._player_regen_turns} turns.")
             self.event_manager.emit(GameEvent(GameEvent.CAST_SPELL, {
+                "message": f"Player cast Regen to recover {power} HP for {self._player_regen_turns} turns.",
                 "spell": spell,
                 "regen_amount": power,
-                "regen_turns": 3,
+                "regen_turns": self._player_regen_turns,
                 "player_mp": self.player.mp,
                 "type": "regen"
             }))
@@ -833,6 +868,7 @@ class Game:
             self._enemy_def_turns = 2
             msgs.append("You cast Guard Break! The enemy's defenses falter.")
             self.event_manager.emit(GameEvent(GameEvent.CAST_SPELL, {
+                "message": "Player cast Guard Break to debuff enemy defense.",
                 "spell": spell,
                 "defense_down": self._enemy_def_down,
                 "defense_turns": self._enemy_def_turns,
@@ -845,6 +881,7 @@ class Game:
             e.hp = _clamp_int(e.hp - dmg, 0, e.max_hp)
             msgs.append(f"You cast {spell}! It hits {e.name} for {dmg} damage.")
             self.event_manager.emit(GameEvent(GameEvent.CAST_SPELL, {
+                "message": f"Player cast {spell} for {dmg} damage to {e.name}.",
                 "spell": spell,
                 "damage": dmg,
                 "enemy_hp": e.hp,
@@ -862,6 +899,7 @@ class Game:
     def combat_potion(self) -> str:
         if self.state != GameState.COMBAT:
             self.event_manager.emit(GameEvent(GameEvent.USED_POTION, {
+                "message": "Player tried to use a potion outside of combat.",
                 "used_in_combat": False,
                 "reason": "not_in_combat",
                 "potions_left": self.player.potions
@@ -869,6 +907,7 @@ class Game:
             return "You don't need to use a potion now."
         if self.player.potions <= 0:
             self.event_manager.emit(GameEvent(GameEvent.USED_POTION, {
+                "message": "Player tried to use a potion but had none.",
                 "used_in_combat": False,
                 "reason": "no_potions",
                 "potions_left": self.player.potions
@@ -880,6 +919,7 @@ class Game:
         msgs.extend(self._enemy_turn())
         msgs.append(self._combat_status())
         self.event_manager.emit(GameEvent(GameEvent.USED_POTION, {
+            "message": f"Player used a potion in combat and healed {healed} HP.",
             "used_in_combat": True,
             "healed": healed,
             "potions_left": self.player.potions,
@@ -907,6 +947,7 @@ class Game:
             self._enemy_def_down = 0
             self._enemy_def_turns = 0
             self.event_manager.emit(GameEvent(GameEvent.EXITED_COMBAT, {
+                "message": "Player fled from combat.",
                 "position": (self.x, self.y),
                 "victory": False,
                 "fled": True,
@@ -922,6 +963,7 @@ class Game:
             msgs.extend(self._enemy_turn())
             msgs.append(self._combat_status())
             self.event_manager.emit(GameEvent(GameEvent.FAILED_FLEE, {
+                "message": "Player failed to flee from combat.",
                 "enemy_name": self.enemy.name if self.enemy else "Unknown",
                 "player": self.player.name,
                 "action": "Failed to leave combat."

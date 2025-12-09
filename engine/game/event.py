@@ -11,7 +11,6 @@ class GameEvent:
     FOUND_SHOP = "found_shop"
     ENTERED_SHOP = "entered_shop"
     EXITED_SHOP = "exited_shop"
-    AVAILABLE_SHOP_ITEMS = "available_shop_items"
     SHOP_ITEM_NOT_FOUND = "shop_item_not_found"
     SHOP_NOT_ENOUGH_GOLD = "shop_not_enough_gold"
     SHOP_EMPTY = "shop_empty"
@@ -29,6 +28,7 @@ class GameEvent:
     HEALED = "healed"
     REGEN = "regen"
     RESTED = "rested"
+    CANT_REST = "cant_rest"
     REST_INTERRUPTED = "rest_interrupted"
     LEVEL_UP = "level_up"
 

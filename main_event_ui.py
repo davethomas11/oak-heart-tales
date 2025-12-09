@@ -14,6 +14,7 @@ from animated_combat_start import show_combat_start_event
 from animated_rest import show_rest_event
 from animated_screens import show_battle_result, wait_keypress
 from engine.game import Game
+from engine.game.ascii_renderer import render_room
 from engine.game.event import GameEvent
 from engine.game.game_state import GameState
 from json_loader import JsonLoader
@@ -47,6 +48,10 @@ def ui_render(game: Game) -> None:
     print_game_ui(lambda: game.look() if len(error_messages) == 0 else error_messages,
                   game.player.to_dict(), {
         'in_combat': game.state == GameState.COMBAT,
+        'room': game.current_tile().name,
+        'room_art': render_room(game.current_tile(), game.ascii_loader),
+        'room_description': game.current_tile().description,
+        'weather': game.current_tile().weather.describe(),
         'map': game.map(),
         'messages': game_messages,
         'enemies': [game.enemy.to_dict() if game.enemy else None],
@@ -136,6 +141,7 @@ def game_loop(game: Game) -> None:
         animated_events()
         # Player has died; offer options
         if not game.ended:
+            clear_screen()
             print("Game Over.\n[L]oad  |  [R]estart  |  [Q]uit")
         while True and game.ended is False:
             try:
@@ -261,8 +267,6 @@ def on_event(event: GameEvent) -> None:
         game_message = "You left the shop."
     elif event_type == GameEvent.SHOP_EMPTY:
         game_message = "The merchant has nothing left to teach you."
-    elif event_type == GameEvent.AVAILABLE_SHOP_ITEMS:
-        game_message = f"Shop items available: {', '.join(data.get('items', {}).keys())}."
     elif event_type == GameEvent.SHOP_ITEM_NOT_FOUND:
         game_message = f"Shop does not have '{data.get('selection')}'."
     elif event_type == GameEvent.SHOP_NOT_ENOUGH_GOLD:
@@ -297,6 +301,7 @@ def on_event(event: GameEvent) -> None:
         elif data.get('fled'):
             game_message = f"You fled from {data.get('enemy_name')}."
         else:
+            game_messages = []
             game_message = "You were defeated in combat."
     elif event_type == GameEvent.ENEMY_ATTACKED:
         game_message = f"{data.get('enemy_name')} attacked you for {data.get('damage')} damage."
@@ -334,13 +339,15 @@ def on_event(event: GameEvent) -> None:
     elif event_type == GameEvent.FAILED_FLEE:
         game_message = "You failed to flee from combat."
     else:
-        game_message = f"Event: {event_type}"
+        game_message = data.get("message") if hasattr(data, "message") else f"Event: {event_type}"
     if game_ref.state == GameState.COMBAT:
         combat_log.append(game_message)
         if len(combat_log) > 5:
             combat_log.pop(0)
     else:
-        game_messages.insert(0, game_message)
+        if len(game_messages) >= 3:
+            game_messages.pop(0)
+        game_messages.append(game_message)
 
 
 if __name__ == "__main__":
