@@ -114,6 +114,13 @@ Or open the committed `game.html` directly in your browser.
 
 ---
 
+### 8. Paneled Terminal Text UI Version with Animations for Events!!
+**Run:**
+```
+python3 main_event_ui.py
+```
+
+---
 ## Game Instructions
 
 ### Start Menu

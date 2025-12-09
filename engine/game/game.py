@@ -1,5 +1,6 @@
 import random
 
+from .event import EventManager, GameEvent
 from .player import Player as PlayerModel
 from .enemy import Enemy as EnemyModel
 from .armor import Armor
@@ -12,6 +13,7 @@ from .util import _hp_line, _clamp_int, _enemy_defense_effect
 from .game_state import GameState
 from .action import _Actions
 from .game_log import GameLog
+
 
 class Game:
     def __init__(self, world: World, player: Player, x: int, y: int):
@@ -42,12 +44,13 @@ class Game:
         self.log = GameLog()
         self.shop_items = None
         self.save_file = None
-        self.save_fn = lambda : "Save game not implemented."
-        self.load_fn = lambda : False
+        self.save_fn = lambda: "Save game not implemented."
+        self.load_fn = lambda: False
         self.ascii_tiles = True
-        self.data_loader = lambda : None
-        self.ascii_loader = lambda : None
+        self.data_loader = lambda: None
+        self.ascii_loader = lambda: None
         self.enemy_archetypes = []
+        self.event_manager = EventManager()
 
     def load_configurations(self, enemies: str):
         self.enemy_archetypes = self.data_loader.load(enemies)
@@ -132,9 +135,11 @@ class Game:
             if answer:
                 self.player.weapon = self.pending_weapon
                 response = f"You equip the {self.pending_weapon.name}."
+                self.event_manager.emit(GameEvent(GameEvent.PICKED_UP_WEAPON, {"weapon": self.pending_weapon}))
             else:
                 response = "You leave the weapon behind."
-            del self.pending_weapon
+                self.event_manager.emit(GameEvent(GameEvent.LEFT_WEAPON, {"weapon": self.pending_weapon}))
+            self.pending_weapon = None
             self.change_state(GameState.EXPLORING)
             return response
         else:
@@ -142,19 +147,34 @@ class Game:
 
     def move(self, dx: int, dy: int, ask: bool) -> str:
         self.log.add_entry(f"Attempting to move from ({self.x},{self.y}) by delta ({dx},{dy})")
+        self.event_manager.emit(GameEvent(GameEvent.ATTEMPT_MOVE, {"from": (self.x, self.y), "delta": (dx, dy)}))
         nx = clamp(self.x + dx, 0, self.world.width - 1)
         ny = clamp(self.y + dy, 0, self.world.height - 1)
         if nx == self.x and ny == self.y:
+            self.event_manager.emit(GameEvent(GameEvent.CANT_MOVE, {
+                "reason": "edge_of_world",
+                "from": (self.x, self.y),
+                "to": (nx, ny)}))
             return "You can't go that way."
 
         # Before moving, warn the player if the destination is very dangerous
         dest_tile = self.world.get_tile(nx, ny)
         dest_tile.weather.change()
+        self.event_manager.emit(GameEvent(GameEvent.WEATHER_CHANGED, {
+            "position": (nx, ny),
+            "weather": dest_tile.weather.current
+        }))
         try:
             danger_threshold = 0.6  # warn for risky areas
             if (not dest_tile.safe and dest_tile.danger >= danger_threshold) and ask:
                 self.change_state(GameState.ASKING_QUESTION)
                 self.pending_move = (nx, ny)
+                self.event_manager.emit(GameEvent(GameEvent.DANGER_WARNING, {
+                    "position": (nx, ny),
+                    "danger": dest_tile.danger,
+                    "tile_name": dest_tile.name,
+                    "weather": dest_tile.weather.current
+                }))
                 self.question = f"Warning: '{dest_tile.name}' seems very dangerous (danger {dest_tile.danger:.2f}). Proceed? [y/N]"
                 return self.question
         except Exception:
@@ -167,7 +187,17 @@ class Game:
         weather_move_mod = self.current_tile().weather.effect().get("movement_penalty", 0)
         if weather_move_mod > 0 and random.random() < min(0.5, 0.1 * weather_move_mod):
             desc = f"f{self.current_tile().weather.stuck_message()} and can't move this turn!"
+            self.event_manager.emit((GameEvent(GameEvent.CANT_MOVE, {
+                "reason": "stuck_weather",
+                "from": (self.x, self.y),
+                "to": (nx, ny)
+            })))
         else:
+            self.event_manager.emit(GameEvent(GameEvent.MOVED, {
+                "to": (nx, ny),
+                "from": (self.x, self.y),
+                "tile_name": dest_tile.name
+            }))
             self.x, self.y = nx, ny
             # mark explored when arriving
             self._mark_explored(self.x, self.y)
@@ -175,6 +205,10 @@ class Game:
             art = render_room(tile, self.ascii_loader) if self.ascii_tiles else ""
             desc = f"{art}\nYou arrive at {tile.name}. {tile.description}"
             if tile.shop:
+                self.event_manager.emit(GameEvent(GameEvent.FOUND_SHOP, {
+                    "position": (self.x, self.y),
+                    "tile_name": tile.name
+                }))
                 desc += "\nYou see a merchant here (type shop to enter)."
 
         # Roll encounter -> switch to action-driven combat
@@ -189,6 +223,10 @@ class Game:
             found = self._maybe_field_find(tile)
             if found:
                 desc += "\n\n" + found
+                self.event_manager.emit(GameEvent(GameEvent.FOUND_WEAPON, {
+                    "position": (self.x, self.y),
+                    "weapon": self.pending_weapon
+                }))
         except Exception:
             pass
         return desc
@@ -198,12 +236,16 @@ class Game:
             return "No move pending confirmation."
         if confirm:
             nx, ny = self.pending_move
-            del self.pending_move
+            self.pending_move = None
             self.change_state(GameState.EXPLORING)
             return self.move(nx - self.x, ny - self.y, False)
         else:
-            del self.pending_move
+            self.pending_move = None
             self.change_state(GameState.EXPLORING)
+            self.event_manager.emit(GameEvent(GameEvent.CANT_MOVE, {
+                "reason": "move_declined",
+                "from": (self.x, self.y)
+            }))
             return "You decide not to proceed there."
 
     def look(self) -> str:
@@ -254,7 +296,7 @@ class Game:
                     ch = "?"  # unexplored
                 line_chars.append(ch)
             rows.append("".join(line_chars))
-        title = f"Map ({self.world.width}x{self.world.height}) — @ you, . explored, ? unknown"
+        title = f"Map ({self.world.width}x{self.world.height})\n@ you, . explored, ? unknown\n"
         return title + "\n" + "\n".join(rows)
 
     def stats(self) -> str:
@@ -271,16 +313,23 @@ class Game:
 
     def shop_exit(self) -> str:
         self.change_state(GameState.EXPLORING)
+        self.event_manager.emit(GameEvent(GameEvent.EXITED_SHOP, {
+            "position": (self.x, self.y),
+            "tile_name": self.current_tile().name
+        }))
         return "You leave the shop.\n" + self.look()
 
     def shop_enter(self) -> str:
         tile = self.current_tile()
         if not getattr(tile, "shop", False):
             return "There is no shop here."
+        self.event_manager.emit(GameEvent(GameEvent.ENTERED_SHOP, {
+            "position": (self.x, self.y),
+            "tile_name": tile.name
+        }))
         return "You enter the shop!\n" + self.shop("")
 
     def shop(self, selection: str) -> str:
-
         tile = self.current_tile()
         if not getattr(tile, "shop", False):
             return "There is no shop here."
@@ -297,8 +346,13 @@ class Game:
         self.change_state(GameState.SHOP)
 
         if not available:
+            self.event_manager.emit(GameEvent(GameEvent.SHOP_EMPTY))
             return "The merchant smiles: 'You've learned all I can teach you for now.'"
         if selection is None or selection == "":
+            self.event_manager.emit(GameEvent(GameEvent.AVAILABLE_SHOP_ITEMS, {
+                "items": self.shop_items,
+                "player_gold": self.player.gold
+            }))
             lines = ["\nMerchant's Caravan — Spells for sale:"]
             for idx, name in enumerate(available, 1):
                 lines.append(f"  {idx}. {name} — {spells[name]}g (MP {SPELLS[name]['mp']})")
@@ -316,12 +370,26 @@ class Game:
                     sel = s
                     break
         if not sel:
+            self.event_manager.emit(GameEvent(GameEvent.SHOP_ITEM_NOT_FOUND, {
+                "selection": selection,
+                "available_items": self.shop_items
+            }))
             return "The merchant shrugs. 'I don't have that.'"
         price = spells[sel]
         if self.player.gold < price:
+            self.event_manager.emit(GameEvent(GameEvent.SHOP_NOT_ENOUGH_GOLD, {
+                "selection": sel,
+                "price": price,
+                "player_gold": self.player.gold
+            }))
             return "You don't have enough gold."
         self.player.gold -= price
         self.player.known_spells = list(self.player.known_spells) + [sel]
+        self.event_manager.emit(GameEvent(GameEvent.BOUGHT_ITEM, {
+            "spell": sel,
+            "price": price,
+            "player_gold": self.player.gold
+        }))
         return f"You learn the spell {sel}!"
 
     def rest(self) -> str:
@@ -331,16 +399,34 @@ class Game:
             # chance to receive a free potion in town occasionally
             if random.random() < 0.15:
                 self.player.potions += 1
+                self.event_manager.emit(GameEvent(GameEvent.RESTED, {
+                    "healed": healed,
+                    "received_potion": True,
+                    "type": "village_rest"
+                }))
                 return f"You rest at the village and heal {healed} HP. The healer gifts you a potion."
+            self.event_manager.emit(GameEvent(GameEvent.RESTED, {
+                "healed": healed,
+                "received_potion": False,
+                "type": "village_rest"
+            }))
             return f"You rest at the village and heal {healed} HP."
         else:
             healed = self.player.heal(4 + self.player.level)
             note = f"You rest cautiously and heal {healed} HP."
+            self.event_manager.emit(GameEvent(GameEvent.RESTED, {
+                "healed": healed,
+                "type": "wild_rest"
+            }))
             # Resting in dangerous areas may trigger an ambush
             if random.random() < min(0.2 + tile.danger / 2, 0.75):
                 enemy = generate_enemy(self.player.level, self.x, self.y)
                 note += "\nYou are ambushed in your sleep!"
                 intro = self.enter_combat(enemy)
+                self.event_manager.emit(GameEvent(GameEvent.REST_INTERRUPTED, {
+                    "position": (self.x, self.y),
+                    "enemy_name": enemy.name
+                }))
                 return note + "\n\n" + intro
             return note
 
@@ -399,8 +485,10 @@ class Game:
         # Reconstruct weapon/armor objects if present
         wpn_d = pd.get("weapon")
         arm_d = pd.get("armor")
-        wpn_obj = Weapon(name=wpn_d["name"], attack_bonus=int(wpn_d["attack_bonus"])) if isinstance(wpn_d, dict) else None
-        arm_obj = Armor(name=arm_d["name"], defense_bonus=int(arm_d["defense_bonus"])) if isinstance(arm_d, dict) else None
+        wpn_obj = Weapon(name=wpn_d["name"], attack_bonus=int(wpn_d["attack_bonus"])) if isinstance(wpn_d,
+                                                                                                    dict) else None
+        arm_obj = Armor(name=arm_d["name"], defense_bonus=int(arm_d["defense_bonus"])) if isinstance(arm_d,
+                                                                                                     dict) else None
         p = PlayerModel(
             name=pd["name"],
             level=int(pd["level"]),
@@ -445,7 +533,7 @@ class Game:
                 g.enemy = EnemyModel(
                     name=ed["name"], ascii=ed["ascii"], level=int(ed["level"]), max_hp=int(ed["max_hp"]),
                     hp=int(ed["hp"]), attack=int(ed["attack"]), defense=int(ed["defense"]),
-                    xp_reward=int(ed["xp_reward"]), gold_reward=int(ed["gold_reward"]) )
+                    xp_reward=int(ed["xp_reward"]), gold_reward=int(ed["gold_reward"]))
                 g._player_regen_turns = int(cmb.get("regen_turns", 0))
                 g._player_regen_amount = int(cmb.get("regen_amount", 0))
                 g._enemy_stunned_turns = int(cmb.get("enemy_stunned", 0))
@@ -536,6 +624,17 @@ class Game:
         self._enemy_def_down = 0
         self._enemy_def_turns = 0
         intro = f"A {enemy.name} appears! Prepare for battle."
+        self.event_manager.emit(GameEvent(GameEvent.ENTERED_COMBAT, {
+            "position": (self.x, self.y),
+            "location": self.current_tile().name,
+            "enemy_name": enemy.name,
+            "enemy_ascii_art": enemy.ascii,
+            "enemy_level": enemy.level,
+            "enemy_hp": enemy.hp,
+            "enemy_max_hp": enemy.max_hp,
+            "enemy_attack": enemy.attack,
+            "enemy_defense": enemy.defense
+        }))
         return intro + "\n" + self._combat_status()
 
     def _combat_status(self) -> str:
@@ -547,7 +646,7 @@ class Game:
             _hp_line(e.name, e.hp, e.max_hp),
             f"\n{e.ascii}\n",
             f"[Enemy Stats] ATK: {e.attack} | DEF: {e.defense}"
-            ]
+        ]
         return "\n".join(lines)
 
     def _end_combat(self, victory: bool) -> str:
@@ -558,13 +657,41 @@ class Game:
                 self.player.gold += max(0, int(e.gold_reward))
                 out_lines.append(f"You defeated {e.name}! You loot {e.gold_reward} gold.")
                 # Award XP and level-up notes
+                cur_level = self.player.level
                 notes = self.player.add_xp(max(0, int(e.xp_reward)))
+                nex_level = self.player.level
                 out_lines.extend(notes)
                 try:
                     self._maybe_offer_weapon(f"the fallen {e.name}")
+                    if self.pending_weapon:
+                        self.event_manager.emit(GameEvent(GameEvent.FOUND_WEAPON, {
+                            "position": (self.x, self.y),
+                            "weapon": self.pending_weapon
+                        }))
                 except Exception:
                     pass
+                self.event_manager.emit(GameEvent(GameEvent.EXITED_COMBAT, {
+                    "position": (self.x, self.y),
+                    "location": self.current_tile().name,
+                    "victory": True,
+                    "fled": False,
+                    "enemy_name": e.name if e else "Unknown",
+                    "gold_looted": e.gold_reward if e else 0,
+                    "xp_gained": e.xp_reward if e else 0,
+                    "leveled_up": nex_level > cur_level
+                }))
         else:
+            self.event_manager.emit(GameEvent(GameEvent.EXITED_COMBAT, {
+                "position": (self.x, self.y),
+                "location": self.current_tile().name,
+                "victory": False,
+                "fled": False,
+                "gold_looted": 0,
+                "xp_gained": 0,
+                "leveled_up": False,
+                "dead_player": self.player.name,
+                "enemy_name": self.enemy.name if self.enemy else "Unknown"
+            }))
             out_lines.append("You were defeated...")
 
         # Clear combat state
@@ -578,6 +705,11 @@ class Game:
         if not self.player.is_alive():
             self.change_state(GameState.GAME_OVER)
             return "\n".join(out_lines)
+        elif self.pending_weapon:
+            # If a weapon pickup is pending, stay in question state
+            self.change_state(GameState.ASKING_QUESTION)
+            out_lines.append(self.question)
+            return "\n".join(out_lines)
         # Return to exploring
         self.change_state(GameState.EXPLORING)
         return "\n".join(out_lines)
@@ -586,6 +718,10 @@ class Game:
         if self._player_regen_turns > 0 and self._player_regen_amount > 0:
             healed = self.player.heal(self._player_regen_amount)
             self._player_regen_turns -= 1
+            self.event_manager.emit(GameEvent(GameEvent.REGEN, {
+                "healed": healed,
+                "turns_left": self._player_regen_turns
+            }))
             return f"Regen restores {healed} HP."
         return None
 
@@ -597,18 +733,31 @@ class Game:
         if self._enemy_stunned_turns > 0:
             msgs.append(f"{e.name} is stunned and cannot act!")
             self._enemy_stunned_turns -= 1
+            self.event_manager.emit(GameEvent(GameEvent.ENEMY_STUNNED, {
+                "enemy_name": e.name,
+                "turns_left": self._enemy_stunned_turns
+            }))
         else:
             # Enemy attacks
             dmg = calc_damage(int(e.attack), int(self.player.total_defense))
             dmg = max(1, dmg)
             self.player.hp = _clamp_int(self.player.hp - dmg, 0, self.player.max_hp)
             msgs.append(f"{e.name} strikes you for {dmg} damage.")
+            self.event_manager.emit(GameEvent(GameEvent.ENEMY_ATTACKED, {
+                "enemy_name": e.name,
+                "damage": dmg,
+                "player_hp": self.player.hp
+            }))
         # Decay enemy defense debuff
         if self._enemy_def_turns > 0:
             self._enemy_def_turns -= 1
             if self._enemy_def_turns == 0 and self._enemy_def_down > 0:
                 msgs.append("The enemy's defenses recover.")
                 self._enemy_def_down = 0
+                self.event_manager.emit(GameEvent(GameEvent.ENEMY_RECOVERED, {
+                    "enemy_name": e.name,
+                    "effect": "defense_recovered"
+                }))
         # Regen tick after enemy turn
         reg = self._player_regen_tick()
         if reg:
@@ -633,6 +782,11 @@ class Game:
         # Enemy responds
         msgs.extend(self._enemy_turn())
         msgs.append(self._combat_status())
+        self.event_manager.emit(GameEvent(GameEvent.ATTACKED, {
+            "enemy_name": e.name,
+            "damage": dmg,
+            "enemy_hp": e.hp
+        }))
         return "\n".join([m for m in msgs if m])
 
     def combat_cast(self, spell: str) -> str:
@@ -642,6 +796,12 @@ class Game:
             return "You don't know that spell."
         cost = int(SPELLS[spell]["mp"])
         if self.player.mp < cost:
+            self.event_manager.emit(GameEvent(GameEvent.OOM, {
+                "spell": spell,
+                "required_mp": cost,
+                "current_mp": self.player.mp,
+                "not_enough_mp": True
+            }))
             return "Not enough MP!"
         self.player.mp -= cost
         e = self.enemy
@@ -650,19 +810,47 @@ class Game:
         if spell == "Heal":
             healed = self.player.heal(power + self.player.level)
             msgs.append(f"You cast Heal and restore {healed} HP.")
+            self.event_manager.emit(GameEvent(GameEvent.CAST_SPELL, {
+                "spell": spell,
+                "healed": healed,
+                "player_hp": self.player.hp,
+                "player_mp": self.player.mp,
+                "type": "heal"
+            }))
         elif spell == "Regen":
             self._player_regen_turns = 3
             self._player_regen_amount = power
             msgs.append(f"You cast Regen. You'll recover {power} HP for 3 turns.")
+            self.event_manager.emit(GameEvent(GameEvent.CAST_SPELL, {
+                "spell": spell,
+                "regen_amount": power,
+                "regen_turns": 3,
+                "player_mp": self.player.mp,
+                "type": "regen"
+            }))
         elif spell == "Guard Break":
             self._enemy_def_down = power + (self.player.level // 4)
             self._enemy_def_turns = 2
             msgs.append("You cast Guard Break! The enemy's defenses falter.")
+            self.event_manager.emit(GameEvent(GameEvent.CAST_SPELL, {
+                "spell": spell,
+                "defense_down": self._enemy_def_down,
+                "defense_turns": self._enemy_def_turns,
+                "player_mp": self.player.mp,
+                "type": "debuff"
+            }))
         else:
             # Damage spell
             dmg = max(1, power + (self.player.level // 2) + random.randint(0, 2) - (int(e.defense) // 4))
             e.hp = _clamp_int(e.hp - dmg, 0, e.max_hp)
             msgs.append(f"You cast {spell}! It hits {e.name} for {dmg} damage.")
+            self.event_manager.emit(GameEvent(GameEvent.CAST_SPELL, {
+                "spell": spell,
+                "damage": dmg,
+                "enemy_hp": e.hp,
+                "player_mp": self.player.mp,
+                "type": "damage"
+            }))
             if e.hp <= 0:
                 msgs.append(self._end_combat(True))
                 return "\n".join([m for m in msgs if m])
@@ -673,14 +861,30 @@ class Game:
 
     def combat_potion(self) -> str:
         if self.state != GameState.COMBAT:
+            self.event_manager.emit(GameEvent(GameEvent.USED_POTION, {
+                "used_in_combat": False,
+                "reason": "not_in_combat",
+                "potions_left": self.player.potions
+            }))
             return "You don't need to use a potion now."
         if self.player.potions <= 0:
+            self.event_manager.emit(GameEvent(GameEvent.USED_POTION, {
+                "used_in_combat": False,
+                "reason": "no_potions",
+                "potions_left": self.player.potions
+            }))
             return "You have no potions."
         self.player.potions -= 1
         healed = self.player.heal(12 + self.player.level)
         msgs = [f"You quaff a potion and recover {healed} HP."]
         msgs.extend(self._enemy_turn())
         msgs.append(self._combat_status())
+        self.event_manager.emit(GameEvent(GameEvent.USED_POTION, {
+            "used_in_combat": True,
+            "healed": healed,
+            "potions_left": self.player.potions,
+            "player_hp": self.player.hp
+        }))
         return "\n".join([m for m in msgs if m])
 
     def combat_flee(self) -> str:
@@ -695,15 +899,31 @@ class Game:
             pass
         if random.random() < chance:
             self.change_state(GameState.EXPLORING)
+            enemy = self.enemy
             self.enemy = None
             self._player_regen_turns = 0
             self._player_regen_amount = 0
             self._enemy_stunned_turns = 0
             self._enemy_def_down = 0
             self._enemy_def_turns = 0
+            self.event_manager.emit(GameEvent(GameEvent.EXITED_COMBAT, {
+                "position": (self.x, self.y),
+                "victory": False,
+                "fled": True,
+                "location": self.current_tile().name,
+                "gold_looted": 0,
+                "xp_gained": 0,
+                "leveled_up": False,
+                "enemy_name": enemy.name if enemy else "Unknown"
+            }))
             return "You successfully flee back to safety."
         else:
             msgs = ["You fail to flee!"]
             msgs.extend(self._enemy_turn())
             msgs.append(self._combat_status())
+            self.event_manager.emit(GameEvent(GameEvent.FAILED_FLEE, {
+                "enemy_name": self.enemy.name if self.enemy else "Unknown",
+                "player": self.player.name,
+                "action": "Failed to leave combat."
+            }))
             return "\n".join([m for m in msgs if m])
