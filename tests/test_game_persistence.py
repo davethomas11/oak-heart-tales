@@ -5,7 +5,15 @@ from engine.game import Game
 
 class TestGamePersistence(unittest.TestCase):
     def test_round_trip(self):
-        g1 = Game.new_random(size=5)
+        tiles = {
+            "village": {"name": "Test Village", "description": "A test village.", "danger": 0.0, "safe": True, "ascii": "."},
+            "tiles": [
+                {"name": "Plains", "description": "Open plains.", "danger": 0.1, "safe": False, "ascii": "."},
+                {"name": "Forest", "description": "Dense forest.", "danger": 0.3, "safe": False, "ascii": "."},
+                {"name": "Mountain", "description": "Rocky mountain.", "danger": 0.5, "safe": False, "ascii": "."},
+            ],
+        }
+        g1 = Game.new_random(size=5, tileset=tiles)
         # mutate some player fields predictably
         p = g1.player
         p.name = "Tester"

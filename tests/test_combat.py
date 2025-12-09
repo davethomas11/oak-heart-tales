@@ -20,7 +20,12 @@ class TestCombat(unittest.TestCase):
         random.seed(123)
         pl = 4
         x, y = 2, 3
-        e = generate_enemy(pl, x, y)
+        arch_types = [
+            {"name": "Goblin", "ascii": "g", "base_hp": 10, "base_attack": 3, "base_defense": 1, "xp_reward": 15, "gold_reward": 5},
+            {"name": "Orc", "ascii": "o", "base_hp": 15, "base_attack": 5, "base_defense": 2, "xp_reward": 25, "gold_reward": 10},
+            {"name": "Troll", "ascii": "T", "base_hp": 20, "base_attack": 7, "base_defense": 3, "xp_reward": 35, "gold_reward": 15},
+        ]
+        e = generate_enemy(arch_types, pl, x, y)
         depth = depth_from_pos(x, y)
         self.assertGreaterEqual(e.level, 1)
         self.assertLessEqual(e.level, pl + 3)

@@ -1,19 +1,11 @@
 from .event import GameEvent, EventManager
 from .player import Player
 from .combat import SPELLS
-from .weapon import Weapon, weapon_pool
-from .armor import Armor, armor_pool
+from .weapon import weapon_pool
+from .armor import armor_pool
 import time
 
-spells = {
-    "Firebolt": 25,
-    "Heal": 30,
-    "Ice Shard": 45,
-    "Shock": 40,
-    "Regen": 35,
-    "Guard Break": 30,
-}
-
+spells = {name: details['price'] for name, details in SPELLS.items()}
 weapon_items = weapon_pool()
 weapons = {w.name: w.attack_bonus * 20 for w in weapon_items}
 armor_items = armor_pool()
@@ -65,9 +57,12 @@ class Shop:
         if not self.shop_items:
             self.generate_items()
 
+        player_weapon = self.player.weapon.name if self.player.weapon else ""
+        player_armor = self.player.armor.name if self.player.armor else ""
+
         available_spells = [s for s in self.shop_items if s in SPELLS and s not in self.player.known_spells]
-        available_weapons = [w for w in self.shop_items if w not in SPELLS and w in weapons and (w != self.player.weapon.name)]
-        available_armor = [a for a in self.shop_items if a not in SPELLS and a in armor and (a != self.player.armor.name)]
+        available_weapons = [w for w in self.shop_items if w not in SPELLS and w in weapons and (w != player_weapon)]
+        available_armor = [a for a in self.shop_items if a not in SPELLS and a in armor and (a != player_armor)]
 
         self.set_shop_items(available_spells, available_weapons, available_armor)
 

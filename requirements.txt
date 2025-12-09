@@ -1,3 +1,4 @@
 livereload
 flask
 transcrypt
+pytest

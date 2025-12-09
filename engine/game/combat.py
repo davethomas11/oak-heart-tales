@@ -54,11 +54,15 @@ def calc_damage(attacker_atk: int, defender_def: int) -> int:
 # Simple built-in spell catalog
 # Keep minimal and inline to avoid new files; effects implemented in-code
 SPELLS = {
-    # name: {mp: cost, pow: base power (damage or heal), desc: description}
-    "Firebolt": {"mp": 4, "pow": 6, "desc": "A basic fire spell dealing single-target damage."},
-    "Heal": {"mp": 5, "pow": 10, "desc": "Restores health to the caster."},
-    "Ice Shard": {"mp": 7, "pow": 9, "desc": "A strong ice attack with increased damage."},
-    "Shock": {"mp": 6, "pow": 5, "desc": "Deals small damage and may stun the enemy."},
-    "Regen": {"mp": 5, "pow": 3, "desc": "Heals the caster over several turns."},
-    "Guard Break": {"mp": 4, "pow": 2, "desc": "Reduces enemy defense temporarily."},
+    # name: {mp: cost, pow: base power (damage or heal), desc: description, price: shop price}
+    "Firebolt": {"mp": 4, "pow": 6, "desc": "A basic fire spell dealing single-target damage.", "price": 25},
+    "Heal": {"mp": 5, "pow": 10, "desc": "Restores health to the caster.", "price": 30},
+    "Ice Shard": {"mp": 7, "pow": 9, "desc": "A strong ice attack with increased damage.", "price": 45},
+    "Shock": {"mp": 6, "pow": 5, "desc": "Deals small damage and may stun the enemy.", "price": 40},
+    "Regen": {"mp": 5, "pow": 3, "desc": "Heals the caster over several turns.", "price": 35},
+    "Guard Break": {"mp": 4, "pow": 2, "desc": "Reduces enemy defense temporarily.", "price": 30},
+    "Firestorm": {"mp": 12, "pow": 15, "desc": "A powerful area fire attack hitting all enemies.", "price": 70},
+    "Mega Heal": {"mp": 10, "pow": 20, "desc": "Greatly restores health to the caster.", "price": 60},
+    "Thunderbolt": {"mp": 9, "pow": 12, "desc": "A strong lightning attack with a chance to stun.", "price": 55},
+    "Ice Age": {"mp": 14, "pow": 18, "desc": "An area ice attack that hits all enemies.", "price": 80}
 }
