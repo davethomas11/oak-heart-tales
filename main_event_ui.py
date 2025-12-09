@@ -44,12 +44,16 @@ def available_actions_str(game: Game) -> list:
 
 def ui_render(game: Game) -> None:
     """Clear the screen and render the provided text."""
+    room_art = game.look() if game.state == GameState.SHOP else render_room(game.current_tile(), game.ascii_loader)
+    if len(error_messages) > 0:
+        room_art = error_messages
     clear_screen()
-    print_game_ui(lambda: game.look() if len(error_messages) == 0 else error_messages,
+    print_game_ui(lambda: room_art,
                   game.player.to_dict(), {
         'in_combat': game.state == GameState.COMBAT,
+        'game_state': game.state,
         'room': game.current_tile().name,
-        'room_art': render_room(game.current_tile(), game.ascii_loader),
+        'room_art': room_art,
         'room_description': game.current_tile().description,
         'weather': game.current_tile().weather.describe(),
         'map': game.map(),
@@ -123,6 +127,18 @@ def game_loop(game: Game) -> None:
                 error_messages = acted # capture traceback lines
                 game_messages = ["An error occurred during that action."]
 
+            if "Inventory:" in (acted or ""):
+                game_messages.append((acted or "").replace("\n", " "))
+
+            if "Stats for" in (acted or ""):
+                game_messages.append((acted or "").replace("\n", " "))
+
+            if "Spells:" in (acted or ""):
+                game_messages.append((acted or "").replace("\n", " "))
+
+            if len(game_messages) > 3:
+                game_messages = game_messages[-3:]
+
             animated_events()
 
             if game.ended:
@@ -154,6 +170,7 @@ def game_loop(game: Game) -> None:
                 loaded = Game.from_dict(load_game(SAVE_FILE))
                 if loaded:
                     game.copy_from(loaded)
+                    game_messages = []
                     break  # resume outer loop with loaded game
                 else:
                     print("No save found or save file invalid.\n[L]oad  |  [R]estart  |  [Q]uit")
@@ -167,6 +184,7 @@ def game_loop(game: Game) -> None:
                 tileset = JsonLoader().load("data/tileset.json")
                 fresh = Game.new_random(size=size, tileset=tileset)
                 game.copy_from(fresh)
+                game_messages = []
                 break  # resume outer loop with fresh game
             if choice in ("q", "quit"):
                 print("Farewell, adventurer.")

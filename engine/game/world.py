@@ -154,8 +154,8 @@ class World:
             t = grid[sy][sx]
             # Convert this tile into a safe shop tile
             grid[sy][sx] = Tile(
-                name="Merchant's Caravan",
-                description="A traveling merchant offers wares and wisdom.",
+                name=t.name + " - Merchant's Caravan",
+                description=t.description + " A traveling merchant offers wares and wisdom here.",
                 danger=0.0,
                 safe=True,
                 ascii=t.ascii,  # keep any ascii if present; renderer will fallback otherwise

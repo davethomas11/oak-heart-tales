@@ -4,7 +4,7 @@ from .event import EventManager, GameEvent
 from .player import Player as PlayerModel
 from .enemy import Enemy as EnemyModel
 from .armor import Armor
-from .weapon import Weapon
+from .weapon import Weapon, weapon_pool
 from .player import Player, clamp, xp_to_next_level
 from .world import World, Tile
 from .combat import generate_enemy, SPELLS, calc_damage
@@ -13,6 +13,7 @@ from .util import _hp_line, _clamp_int, _enemy_defense_effect
 from .game_state import GameState
 from .action import _Actions
 from .game_log import GameLog
+from .shop import Shop
 
 
 class Game:
@@ -23,6 +24,7 @@ class Game:
         self.y = y
         # Track explored tiles as a set of (x, y)
         self.explored = set()  # type: ignore[var-annotated]
+        self.shops = set()
         # Mark starting position as explored
         self._mark_explored(self.x, self.y)
         # Actions interface for UIs
@@ -209,6 +211,7 @@ class Game:
             art = render_room(tile, self.ascii_loader) if self.ascii_tiles else ""
             desc = f"{art}\nYou arrive at {tile.name}. {tile.description}"
             if tile.shop:
+                self.shops.append((self.x, self.y))
                 self.event_manager.emit(GameEvent(GameEvent.FOUND_SHOP, {
                     "position": (self.x, self.y),
                     "tile_name": tile.name
@@ -297,17 +300,20 @@ class Game:
                     ch = "@"  # player
                 elif (x, y) in self.explored:
                     ch = "."  # explored
+                elif (x, y) in self.shops:
+                    ch = "$"  # shop
                 else:
                     ch = "?"  # unexplored
                 line_chars.append(ch)
             rows.append("".join(line_chars))
-        title = f"Map ({self.world.width}x{self.world.height})\n@ you, . explored, ? unknown\n"
+        title = f"Map ({self.world.width}x{self.world.height})\n@ you, . explored, $ shop, ? unknown\n"
         return title + "\n" + "\n".join(rows)
 
     def stats(self) -> str:
         p = self.player
         return (
-            f"{p.name} Lv {p.level}\n"
+            f"Stats for {p.name}:\n"
+            f"Lv {p.level}\n"
             f"XP: {p.xp}/{xp_to_next_level(p.level)} | Gold: {p.gold}\n"
             f"HP: {p.hp}/{p.max_hp} | MP: {p.mp}/{p.max_mp} | ATK: {p.attack} | DEF: {p.defense} | Potions: {p.potions} | Spells: {len([s for s in p.known_spells if s in SPELLS])}"
             f"\nWeapon: {p.weapon if p.weapon else 'None'}\nArmor: {p.armor if p.armor else 'None'}"
@@ -315,6 +321,18 @@ class Game:
             f"\nLocation: ({self.x},{self.y}) - {self.current_tile().name}"
             f"\nState: {self.state}"
         )
+
+    def spells(self) -> str:
+        p = self.player
+        if not p.known_spells:
+            return "Known Spells: You know no spells."
+        lines = ["Known Spells:"]
+        for sp in p.known_spells:
+            if sp in SPELLS:
+                lines.append(f" - {sp} (MP {SPELLS[sp]['mp']}) [pow {SPELLS[sp]['pow']}]: {SPELLS[sp]['desc']}")
+            else:
+                lines.append(f" - {sp}: (Unknown spell details)")
+        return "\n".join(lines)
 
     def shop_exit(self) -> str:
         self.change_state(GameState.EXPLORING)
@@ -340,65 +358,16 @@ class Game:
         tile = self.current_tile()
         if not getattr(tile, "shop", False):
             return "There is no shop here."
-        spells = {
-            "Firebolt": 25,
-            "Heal": 30,
-            "Ice Shard": 45,
-            "Shock": 40,
-            "Regen": 35,
-            "Guard Break": 30,
-        }
-        available = [s for s in spells.keys() if s in SPELLS and s not in self.player.known_spells]
-        self.shop_items = {s: spells[s] for s in available}
-        self.change_state(GameState.SHOP)
-
-        if not available:
-            self.event_manager.emit(GameEvent(GameEvent.SHOP_EMPTY, {
-                "message": "Shop is empty, all spells learned."
-            }))
-            return "The merchant smiles: 'You've learned all I can teach you for now.'"
-        if selection is None or selection == "":
-            lines = ["\nMerchant's Caravan — Spells for sale:"]
-            for idx, name in enumerate(available, 1):
-                lines.append(f"  {idx}. {name} — {spells[name]}g (MP {SPELLS[name]['mp']})")
-            lines.append(f"Player gold: {self.player.gold}")
-            lines.append("Type a number or spell name to buy, or press Enter to leave.")
-            return "\n".join(lines)
-        sel = None
-        if selection.isdigit():
-            i = int(selection) - 1
-            if 0 <= i < len(available):
-                sel = available[i]
+        shop = Shop(self.player, self.event_manager)
+        if hasattr(tile, "shop_items") and tile.shop_items:
+            shop.shop_items = tile.shop_items
         else:
-            for s in available:
-                if s.lower() == selection.lower():
-                    sel = s
-                    break
-        if not sel:
-            self.event_manager.emit(GameEvent(GameEvent.SHOP_ITEM_NOT_FOUND, {
-                "message": f"Shop item not found: {selection}",
-                "selection": selection,
-                "available_items": self.shop_items
-            }))
-            return "The merchant shrugs. 'I don't have that.'"
-        price = spells[sel]
-        if self.player.gold < price:
-            self.event_manager.emit(GameEvent(GameEvent.SHOP_NOT_ENOUGH_GOLD, {
-                "message": f"Not enough gold for {sel}.",
-                "selection": sel,
-                "price": price,
-                "player_gold": self.player.gold
-            }))
-            return "You don't have enough gold."
-        self.player.gold -= price
-        self.player.known_spells = list(self.player.known_spells) + [sel]
-        self.event_manager.emit(GameEvent(GameEvent.BOUGHT_ITEM, {
-            "message": f"Player bought spell {sel}.",
-            "spell": sel,
-            "price": price,
-            "player_gold": self.player.gold
-        }))
-        return f"You learn the spell {sel}!"
+            tile.shop_items = shop.generate_items()
+        shop_response = shop.shop(selection)
+        self.shop_items = shop.shop_items
+        tile.shop_items = shop.shop_items
+        self.change_state(GameState.SHOP)
+        return shop_response
 
     def rest(self) -> str:
         tile = self.current_tile()
@@ -576,6 +545,10 @@ class Game:
             self.explored = set(other.explored)
         except Exception:
             self.explored = {(self.x, self.y)}
+        try:
+            self.shops = set(other.shops)
+        except Exception:
+            self.shops = set()
         # copy state/combat snapshot
         self.state = other.state
         self.enemy = other.enemy
@@ -592,15 +565,7 @@ class Game:
 
     # --- Loot and discovery helpers ---
     def _weapon_pool(self) -> list:
-        # Simple tiered weapons; bonuses are small to moderate
-        return [
-            Weapon("Rusty Dagger", 1),
-            Weapon("Wooden Sword", 2),
-            Weapon("Iron Sword", 3),
-            Weapon("Steel Axe", 4),
-            Weapon("Knight's Blade", 5),
-            Weapon("Runed Spear", 6),
-        ]
+        return weapon_pool()
 
     def _random_weapon_for_level(self) -> Weapon:
         pool = self._weapon_pool()

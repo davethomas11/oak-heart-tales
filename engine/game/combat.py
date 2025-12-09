@@ -54,12 +54,11 @@ def calc_damage(attacker_atk: int, defender_def: int) -> int:
 # Simple built-in spell catalog
 # Keep minimal and inline to avoid new files; effects implemented in-code
 SPELLS = {
-    # name: {mp: cost, pow: base power (damage or heal)}
-    "Firebolt": {"mp": 4, "pow": 6},  # single-target damage
-    "Heal": {"mp": 5, "pow": 10},  # heal self
-    "Ice Shard": {"mp": 7, "pow": 9},  # stronger damage
-    # Quick wins: a few more simple spells
-    "Shock": {"mp": 6, "pow": 5},  # small dmg, chance to stun
-    "Regen": {"mp": 5, "pow": 3},  # heal over time (per turn amount)
-    "Guard Break": {"mp": 4, "pow": 2},  # reduce enemy defense temporarily
+    # name: {mp: cost, pow: base power (damage or heal), desc: description}
+    "Firebolt": {"mp": 4, "pow": 6, "desc": "A basic fire spell dealing single-target damage."},
+    "Heal": {"mp": 5, "pow": 10, "desc": "Restores health to the caster."},
+    "Ice Shard": {"mp": 7, "pow": 9, "desc": "A strong ice attack with increased damage."},
+    "Shock": {"mp": 6, "pow": 5, "desc": "Deals small damage and may stun the enemy."},
+    "Regen": {"mp": 5, "pow": 3, "desc": "Heals the caster over several turns."},
+    "Guard Break": {"mp": 4, "pow": 2, "desc": "Reduces enemy defense temporarily."},
 }

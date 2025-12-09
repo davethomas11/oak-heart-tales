@@ -215,15 +215,24 @@ def print_game_ui(
     else:
         room_lines_raw = ["[room]"]
 
-    # Wrap each room line if it exceeds room_w - 2
-    # Center each room line if it is shorter than room_w - 2
-    flat_room_lines = []
-    for l in room_lines_raw:
-        if isinstance(l, str):
-            centered_lines = [center_line(line, room_w - 2) for line in l.splitlines()]
-            flat_room_lines.extend(centered_lines)
-        else:
-            flat_room_lines.append(center_line(str(l), room_w - 2))
+    if state["game_state"] == "SHOP":
+        shop_banner = color("=== Shop ===", C.BOLD + C.YELLOW) if use_color else "=== Shop ==="
+        room_lines_raw.insert(0, shop_banner)
+        room_lines_raw.insert(1, "")
+        flat_room_lines = []
+        for l in room_lines_raw:
+            wrapped_lines = wrap_text(l, room_w - 2)
+            flat_room_lines.extend(wrapped_lines)
+    else:
+        # Wrap each room line if it exceeds room_w - 2
+        # Center each room line if it is shorter than room_w - 2
+        flat_room_lines = []
+        for l in room_lines_raw:
+            if isinstance(l, str):
+                centered_lines = [center_line(line, room_w - 2) for line in l.splitlines()]
+                flat_room_lines.extend(centered_lines)
+            else:
+                flat_room_lines.append(center_line(str(l), room_w - 2))
 
     room_lines_raw = flat_room_lines
     room_lines_raw.insert(0, "")

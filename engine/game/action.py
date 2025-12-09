@@ -117,7 +117,7 @@ class _Actions:
             for item in shop.keys():
                 actions.append(
                     Action(
-                        id=f"shop_buy::{item}",
+                        id=f"shop_buy::{item.lower()}",
                         label=f"Buy {item} (Gold {shop[item]})",
                         hotkeys=[f"buy {item}".lower(), f"{index}", item],
                         category="shop"
@@ -127,12 +127,15 @@ class _Actions:
             actions.append(Action("shop_exit", "Exit Shop", ["exit", "e"], "shop"))
             actions.append(Action("look", "View Shop", ["look", "l"], "shop"))
             actions.append(Action("stats", "Stats", ["stats", "s"], "shop"))
+            actions.append(Action("spells", "Spells", ["spells", "spellbook", "sp"], "info")),
+            actions.append(Action("inventory", "Inventory", ["inv", "inventory", "i"], "info"))
             # Build exec map for shop
             self._exec_map = {
-                # **{f"shop_buy::{item.lower()}": (lambda it=item: g.shop(it)) for item in shop.keys()},
                 "shop_exit": g.shop_exit,
                 "look": g.look,
                 "stats": g.stats,
+                "spells": g.spells,
+                "inventory": lambda: f"Inventory: Potions x{g.player.potions}; Gold {g.player.gold}",
             }
             for item in shop.keys():
                 self._exec_map[f"shop_buy::{item.lower()}"] = (lambda it=item: g.shop(it))
@@ -190,6 +193,7 @@ class _Actions:
                     Action("look", "Look", ["look", "l"], "info"),
                     Action("map", "Map", ["map", "m"], "info"),
                     Action("stats", "Stats", ["stats", "character", "c"], "info"),
+                    Action("spells", "Spells", ["spells", "spellbook", "sp"], "info"),
                     Action("rest", "Rest", ["rest", "r"], "camp"),
                     Action("shop", "Shop", ["shop"], "town", bool(getattr(g.current_tile(), "shop", False)),
                            None if getattr(g.current_tile(), "shop", False) else "No merchant here"),
@@ -206,6 +210,7 @@ class _Actions:
                 "look": g.look,
                 "map": g.map,
                 "stats": g.stats,
+                "spells": g.spells,
                 "rest": g.rest,
                 "shop": g.shop_enter,
                 "inventory": lambda: f"Inventory: Potions x{g.player.potions}; Gold {g.player.gold}",
@@ -217,6 +222,7 @@ class _Actions:
                 Action("help", "Help", ["help", "h", "?"], "system"),
                 Action("quit_game", "Quit Game", ["quit", "q"], "system"),
                 Action("log", "Show Log", ["log", "g"], "system"),
+
             ]
         )
 

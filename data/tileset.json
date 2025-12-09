@@ -1,7 +1,8 @@
 {
   "village": {
     "name": "Oakheart Village",
-    "description": "Your humble village. A safe haven.",
+    "shop": true,
+    "description": "Your humble village. A safe haven. You see a merchant here.",
     "danger": 0.0,
     "safe": true,
     "ascii": "oakheart_village.txt"
