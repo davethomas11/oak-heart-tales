@@ -69,6 +69,7 @@ function App() {
         setEnemy(data.enemy);
         setTile(data.tile);
         setGameQuit(false);
+        setNotifications([]);
     }
 
     // Save to browser
@@ -99,6 +100,7 @@ function App() {
             setEnemy(data.enemy);
             setTile(data.tile);
             setGameQuit(false);
+            setNotifications([]);
             alert("Game loaded!");
         } else {
             alert("No saved game found.");
