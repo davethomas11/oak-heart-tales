@@ -937,7 +937,11 @@ class Game:
             }))
             return "You don't need to use a potion now."
         msgs = [self.use_potion()]
-        msgs.extend(self._enemy_turn())
+        # 50% chance to skip enemy turn after potion use
+        if random.random() < 0.5:
+            msgs.append("You use a potion quickly and avoid an attack this turn!")
+        else:
+            msgs.extend(self._enemy_turn())
         msgs.append(self._combat_status())
         return "\n".join([m for m in msgs if m])
 
