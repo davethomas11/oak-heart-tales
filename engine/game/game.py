@@ -137,7 +137,8 @@ class Game:
             if answer:
                 self.player.weapon = self.pending_weapon
                 response = f"You equip the {self.pending_weapon.name}."
-                self.event_manager.emit(GameEvent(GameEvent.PICKED_UP_WEAPON, {"weapon": self.pending_weapon.to_dict()}))
+                self.event_manager.emit(
+                    GameEvent(GameEvent.PICKED_UP_WEAPON, {"weapon": self.pending_weapon.to_dict()}))
             else:
                 response = "You leave the weapon behind."
                 self.event_manager.emit(GameEvent(GameEvent.LEFT_WEAPON, {"weapon": self.pending_weapon.to_dict()}))
@@ -791,6 +792,38 @@ class Game:
         msgs.append(self._combat_status())
         return "\n".join([m for m in msgs if m])
 
+    def cast_spell(self, spell: str) -> str:
+        allowed_spells = ["Heal"]
+        if spell not in allowed_spells:
+            return f"{spell} cannot be cast outside of combat."
+        if spell not in SPELLS:
+            return "You don't know that spell."
+        cost = int(SPELLS[spell]["mp"])
+        if self.player.mp < cost:
+            self.event_manager.emit(GameEvent(GameEvent.OOM, {
+                "message": "Not enough MP to cast spell.",
+                "spell": spell,
+                "required_mp": cost,
+                "current_mp": self.player.mp,
+                "not_enough_mp": True
+            }))
+            return "Not enough MP!"
+        self.player.mp -= cost
+        msgs: list = []
+        power = int(SPELLS[spell]["pow"])
+        if spell == "Heal":
+            healed = self.player.heal(power + self.player.level)
+            msgs.append(f"You cast Heal and restore {healed} HP.")
+            self.event_manager.emit(GameEvent(GameEvent.CAST_SPELL, {
+                "message": f"Player cast Heal to restore {healed} HP.",
+                "spell": spell,
+                "healed": healed,
+                "player_hp": self.player.hp,
+                "player_mp": self.player.mp,
+                "type": "heal"
+            }))
+        return "\n".join([m for m in msgs if m])
+
     def combat_cast(self, spell: str) -> str:
         if self.state != GameState.COMBAT or not self.enemy:
             return "You can't cast that now."
@@ -866,15 +899,15 @@ class Game:
         msgs.append(self._combat_status())
         return "\n".join([m for m in msgs if m])
 
-    def combat_potion(self) -> str:
-        if self.state != GameState.COMBAT:
+    def use_potion(self) -> str:
+        if self.player.hp == self.player.max_hp:
             self.event_manager.emit(GameEvent(GameEvent.USED_POTION, {
-                "message": "Player tried to use a potion outside of combat.",
+                "message": "Player tried to use a potion at full health and decided not to waste it.",
                 "used_in_combat": False,
-                "reason": "not_in_combat",
+                "reason": "full_health",
                 "potions_left": self.player.potions
             }))
-            return "You don't need to use a potion now."
+            return "You are already at full health, don't waste the potion!"
         if self.player.potions <= 0:
             self.event_manager.emit(GameEvent(GameEvent.USED_POTION, {
                 "message": "Player tried to use a potion but had none.",
@@ -885,16 +918,27 @@ class Game:
             return "You have no potions."
         self.player.potions -= 1
         healed = self.player.heal(12 + self.player.level)
-        msgs = [f"You quaff a potion and recover {healed} HP."]
-        msgs.extend(self._enemy_turn())
-        msgs.append(self._combat_status())
         self.event_manager.emit(GameEvent(GameEvent.USED_POTION, {
-            "message": f"Player used a potion in combat and healed {healed} HP.",
-            "used_in_combat": True,
+            "message": f"Player used a potion and healed {healed} HP.",
+            "used_in_combat": False,
             "healed": healed,
             "potions_left": self.player.potions,
             "player_hp": self.player.hp
         }))
+        return f"You quaff a potion and recover {healed} HP."
+
+    def combat_potion(self) -> str:
+        if self.state != GameState.COMBAT:
+            self.event_manager.emit(GameEvent(GameEvent.USED_POTION, {
+                "error": "Game tried to use a combat_potion outside of combat.",
+                "used_in_combat": False,
+                "reason": "not_in_combat",
+                "potions_left": self.player.potions
+            }))
+            return "You don't need to use a potion now."
+        msgs = [self.use_potion()]
+        msgs.extend(self._enemy_turn())
+        msgs.append(self._combat_status())
         return "\n".join([m for m in msgs if m])
 
     def combat_flee(self) -> str:

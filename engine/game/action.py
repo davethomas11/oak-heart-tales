@@ -83,7 +83,6 @@ class _Actions:
                         )
                     )
 
-
             # Build exec map for combat
             self._exec_map = {
                 "combat_attack": g.combat_attack,
@@ -198,6 +197,7 @@ class _Actions:
                     Action("shop", "Shop", ["shop"], "town", bool(getattr(g.current_tile(), "shop", False)),
                            None if getattr(g.current_tile(), "shop", False) else "No merchant here"),
                     Action("inventory", "Inventory", ["inv", "inventory", "i"], "info"),
+                    Action("potion", "Use Potion", ["potion", "p"], "camp"),
                 ]
             )
 
@@ -214,7 +214,22 @@ class _Actions:
                 "rest": g.rest,
                 "shop": g.shop_enter,
                 "inventory": lambda: f"Inventory: Potions x{g.player.potions}; Gold {g.player.gold}",
+                "potion": g.use_potion,
             }
+
+            if "Heal" in g.player.known_spells:
+                self._exec_map["cast::heal"] = lambda: g.cast_spell("Heal")
+                actions.append(
+                    Action(
+                        id="cast::heal",
+                        label="Cast Heal (MP 5)",
+                        hotkeys=["cast heal"],
+                        category="camp",
+                        enabled=g.player.mp >= 5,
+                        reason=None if g.player.mp >= 5 else "Not enough MP",
+                    )
+                )
+
 
         actions.extend(
             [
