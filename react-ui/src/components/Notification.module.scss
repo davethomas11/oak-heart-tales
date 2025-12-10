@@ -1,0 +1,21 @@
+
+.notification {
+  background: rgba(40, 40, 40, 0.95);
+  color: #fff;
+  padding: 0.75rem 1.25rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px #0008;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.5s, transform 0.5s;
+  font-size: 1rem;
+  pointer-events: auto;
+}
+.notification.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+.notification.hide {
+  opacity: 0;
+  transform: translateY(-20px);
+}

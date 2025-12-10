@@ -1,3 +1,6 @@
+from .weapon import weapon_pool
+from .armor import armor_pool
+
 # models/player.py
 def clamp(val: int, lo: int, hi: int) -> int:
     return max(lo, min(hi, val))
@@ -96,3 +99,27 @@ class Player:
             "armor": self.armor.name if self.armor else None,
             "xp": self.xp,
         }
+
+    @classmethod
+    def from_dict(cls, d):
+        weapons = weapon_pool()
+        armor_items = armor_pool()
+        weapon = next((w for w in weapons if w.name == d["weapon"]), None) if d.get("weapon") else None
+        armor = next((a for a in armor_items if a.name == d["armor"]), None) if d.get("armor") else None
+        return cls(
+            name=d["name"],
+            level=d["level"],
+            hp=d["hp"],
+            max_hp=d["max_hp"],
+            mp=d["mp"],
+            max_mp=d["max_mp"],
+            attack=d["attack"],
+            defense=d["defense"],
+            potions=d["potions"],
+            known_spells=d["known_spells"],
+            gold=d["gold"],
+            weapon=weapon,
+            armor=armor,
+            xp=d.get("xp", 0),
+        )
+

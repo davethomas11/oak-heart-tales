@@ -7,6 +7,13 @@ class Weapon:
     def __str__(self):
         return f"Weapon(name={self.name}, attack_bonus={self.attack_bonus})"
 
+    def to_dict(self):
+        return {"name": self.name, "attack_bonus": self.attack_bonus}
+
+    @classmethod
+    def from_dict(cls, d):
+        return cls(d["name"], d["attack_bonus"])
+
 def weapon_pool():
     return [
         Weapon("Rusty Dagger", 1),

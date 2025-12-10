@@ -1,0 +1,70 @@
+.overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(10, 10, 20, 0.85);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  animation: fadeInBg 1s;
+}
+
+@keyframes fadeInBg {
+  from { background: rgba(10, 10, 20, 0); }
+  to   { background: rgba(10, 10, 20, 0.85); }
+}
+
+.text {
+  font-size: 4rem;
+  color: #ff2d55;
+  font-family: 'Orbitron', 'Arial Black', sans-serif;
+  letter-spacing: 0.2em;
+  text-align: center;
+  animation: popIn 1.2s cubic-bezier(0.23, 1.1, 0.32, 1) forwards, pulse 2s 1.2s infinite alternate;
+  opacity: 0;
+}
+
+@keyframes popIn {
+  0%   { transform: scale(0.7); opacity: 0; filter: blur(8px);}
+  60%  { transform: scale(1.1); opacity: 1; filter: blur(0);}
+  100% { transform: scale(1); opacity: 1; filter: blur(0);}
+}
+
+@keyframes pulse {
+  from { text-shadow: 0 0 20px #ff2d55, 0 0 40px #fff; }
+  to   { text-shadow: 0 0 40px #ff2d55, 0 0 80px #fff; }
+}
+
+.glow {
+  display: inline-block;
+  text-shadow:
+          0 0 10px #ff2d55,
+          0 0 20px #fff,
+          0 0 40px #ff2d55,
+          0 0 80px #fff;
+}
+
+.buttonRow {
+  margin-top: 2rem;
+  display: flex;
+  gap: 2rem;
+  justify-content: center;
+}
+
+.button {
+  font-size: 1.5rem;
+  padding: 0.7em 2em;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #ff2d55 0%, #ff6a00 100%);
+  color: #fff;
+  font-family: 'Orbitron', 'Arial Black', sans-serif;
+  cursor: pointer;
+  box-shadow: 0 0 10px #ff2d55, 0 0 20px #fff;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.button:hover {
+  transform: scale(1.08);
+  box-shadow: 0 0 20px #ff2d55, 0 0 40px #fff;
+}

@@ -1,32 +1,30 @@
-
-body {
-  background-color: #1b1b1b;
-  color: #f4f4f4;
-  font-family: 'Press Start 2P', monospace; /* Pixel-art style font */
-  margin: 0;
-  padding: 0;
+.notificationsContainer {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  pointer-events: none;
 }
-
-.container {
-  max-width: 1200px;
-  margin: 2rem auto;
-  padding: 1rem;
-  background: linear-gradient(180deg, #2a2a2a, #1b1b1b);
-  border: 3px solid #444;
-  border-radius: 8px;
-  box-shadow: 0 0 15px rgba(0,0,0,0.6);
-}
-
 
 h1 {
   text-shadow: 2px 2px #000, 0 0 10px #ffcc66;
 }
 
 
+.hp {
+  color: #ff6666;
+}
 
-.hp { color: #ff6666; }
-.mp { color: #66ccff; }
-.gold { color: #ffcc66; }
+.mp {
+  color: #66ccff;
+}
+
+.gold {
+  color: #ffcc66;
+}
 
 body {
   font-family: "Press Start 2P", system-ui;
@@ -67,34 +65,101 @@ button:disabled {
   cursor: not-allowed;
 }
 
+.actions {
+  margin-top: 1rem;
+  text-align: center;
+}
+
+
+/* Animated background gradient */
+body {
+  background: linear-gradient(180deg, #1b1b1b, #2a2a2a);
+  background-size: 400% 400%;
+  animation: bgAnimation 3s ease infinite;
+  color: #f4f4f4;
+  font-family: 'Press Start 2P', monospace;
+  margin: 0;
+  padding: 0;
+}
+
+@keyframes bgAnimation {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Container glow */
+.container {
+  max-width: 1200px;
+  margin: 2rem auto;
+  padding: 1rem;
+  background: linear-gradient(180deg, #2a2a2a, #1b1b1b);
+  border: 3px solid #444;
+  border-radius: 8px;
+  box-shadow: 0 0 20px rgba(255, 204, 102, 0.3);
+}
+
+/* Scanline effect for game output */
 .game-output {
   background: #111;
-  color: #0f0; /* Green text for retro feel */
+  color: #0f0;
   padding: 1rem;
   min-height: 200px;
   border: 2px solid #444;
   border-radius: 4px;
   font-size: 14px;
   white-space: pre-wrap;
+  position: relative;
 }
 
-.stats-section {
-  display: flex;
-  gap: 2rem;
-  margin-top: 1rem;
-}
-
-.stats-section img {
+.console-output {
+  display: block;
+  background: #222;
+  color: #0f0;
+  padding: 1rem;
+  min-height: 200px;
   border: 2px solid #444;
-  border-radius: 4px;
 }
 
-.stats-section h3 {
-  color: #ffcc66;
-  margin-bottom: 0.5rem;
+
+.game-output::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+                  to bottom,
+                  rgba(255, 255, 255, 0.02),
+                  rgba(255, 255, 255, 0.02) 1px,
+                  transparent 2px,
+                  transparent 3px
+  );
+  pointer-events: none;
 }
 
-.actions {
-  margin-top: 1rem;
-  text-align: center;
+/* Stat hover glow */
+.hp:hover {
+  text-shadow: 0 0 8px #ff6666;
+}
+
+.mp:hover {
+  text-shadow: 0 0 8px #66ccff;
+}
+
+.gold:hover {
+  text-shadow: 0 0 8px #ffcc66;
+}
+
+/* Button press animation */
+button:active {
+  transform: scale(0.95);
+  box-shadow: 0 0 5px #ffcc66 inset;
 }

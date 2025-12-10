@@ -48,6 +48,7 @@ class World:
         self.height = height
         self.grid = grid
         self.seed = seed
+        self.tileset = World._default_tileset()
 
     def get_tile(self, x: int, y: int) -> Tile:
         return self.grid[y][x]
@@ -75,16 +76,20 @@ class World:
     def _default_tileset() -> dict:
         # Provide a default tileset if file is missing
         default = {
-            "village": {"name": "Oakheart Village", "description": "Your humble village. A safe haven.", "danger": 0.0, "safe": True},
+            "village": {"name": "Oakheart Village", "description": "Your humble village. A safe haven.", "danger": 0.0, "safe": True, "ascii": "V", "shop": True},
             "tiles": [
-                {"name": "Western Farms", "description": "Abandoned fields overrun with weeds.", "danger": 0.2},
-                {"name": "Old Watchtower", "description": "A crumbling tower watches the valleys.", "danger": 0.3},
-                {"name": "Frost Creek", "description": "Icy water murmurs over smooth stones.", "danger": 0.35},
-                {"name": "Mire Flats", "description": "Boggy ground that sucks at your boots.", "danger": 0.45},
-                {"name": "Gloomwood", "description": "Dark trees crowd the path. Eyes watch.", "danger": 0.55},
-                {"name": "Ruined Keep", "description": "Broken walls hide shadows and secrets.", "danger": 0.6},
-                {"name": "Northern Ridge", "description": "Wind-swept ridge with sparse pines.", "danger": 0.35},
-                {"name": "Eastgate Road", "description": "A cobbled road lined with old mileposts.", "danger": 0.25},
+                {"name": "Western Farms", "description": "Abandoned fields overrun with weeds.", "danger": 0.2, "ascii": "F"},
+                {"name": "Shadowfen", "description": "Dark swamp with unseen dangers lurking.", "danger": 0.5, "ascii": "S"},
+                {"name": "Crystal Lake", "description": "A serene lake with crystal clear water.", "danger": 0.1, "ascii": "L"},
+                {"name": "Whispering Woods", "description": "Trees that seem to whisper as the wind blows.", "danger": 0.4, "ascii": "W"},
+                {"name": "Sunset Hill", "description": "A gentle hill bathed in golden light.", "danger": 0.15, "ascii": "H"},
+                {"name": "Old Watchtower", "description": "A crumbling tower watches the valleys.", "danger": 0.3, "ascii": "T"},
+                {"name": "Frost Creek", "description": "Icy water murmurs over smooth stones.", "danger": 0.35, "ascii": "C"},
+                {"name": "Mire Flats", "description": "Boggy ground that sucks at your boots.", "danger": 0.45, "ascii": "M"},
+                {"name": "Gloomwood", "description": "Dark trees crowd the path. Eyes watch.", "danger": 0.55, "ascii": "G"},
+                {"name": "Ruined Keep", "description": "Broken walls hide shadows and secrets.", "danger": 0.6, "ascii": "K"},
+                {"name": "Northern Ridge", "description": "Wind-swept ridge with sparse pines.", "danger": 0.35, "ascii": "R"},
+                {"name": "Eastgate Road", "description": "A cobbled road lined with old mileposts.", "danger": 0.25, "ascii": "E"},
             ]
         }
         return default
@@ -163,4 +168,6 @@ class World:
             )
             placed += 1
 
-        return World(width=width, height=height, grid=grid, seed=seed)
+        world = World(width=width, height=height, grid=grid, seed=seed)
+        world.tileset = tileset  # store tileset for reference
+        return world

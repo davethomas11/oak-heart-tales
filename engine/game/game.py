@@ -108,7 +108,7 @@ class Game:
         return result
 
     def restart_game(self) -> str:
-        fresh = Game.new_random(size=self.world.get_size())
+        fresh = Game.new_random(size=self.world.get_size(), tileset=self.world.tileset)
         self.copy_from(fresh)
         message = "Game restarted."
         message += "\n" + self.look()
@@ -137,10 +137,10 @@ class Game:
             if answer:
                 self.player.weapon = self.pending_weapon
                 response = f"You equip the {self.pending_weapon.name}."
-                self.event_manager.emit(GameEvent(GameEvent.PICKED_UP_WEAPON, {"weapon": self.pending_weapon}))
+                self.event_manager.emit(GameEvent(GameEvent.PICKED_UP_WEAPON, {"weapon": self.pending_weapon.to_dict()}))
             else:
                 response = "You leave the weapon behind."
-                self.event_manager.emit(GameEvent(GameEvent.LEFT_WEAPON, {"weapon": self.pending_weapon}))
+                self.event_manager.emit(GameEvent(GameEvent.LEFT_WEAPON, {"weapon": self.pending_weapon.to_dict()}))
             self.pending_weapon = None
             self.change_state(GameState.EXPLORING)
             return response
@@ -160,11 +160,13 @@ class Game:
                 "to": (nx, ny)}))
             return "You can't go that way."
 
+        cur_tile = self.current_tile()
+
         # Before moving, warn the player if the destination is very dangerous
         dest_tile = self.world.get_tile(nx, ny)
         dest_tile.weather.change()
         self.event_manager.emit(GameEvent(GameEvent.WEATHER_CHANGED, {
-            "message": f"The weather at f{dest_tile.name} has changed to f{dest_tile.weather.current}.",
+            "message": f"The weather at {dest_tile.name} has changed to {dest_tile.weather.current}.",
             "position": (nx, ny),
             "weather": dest_tile.weather.current
         }))
@@ -192,12 +194,14 @@ class Game:
         if weather_move_mod > 0 and random.random() < min(0.5, 0.1 * weather_move_mod):
             desc = f"f{self.current_tile().weather.stuck_message()} and can't move this turn!"
             self.event_manager.emit((GameEvent(GameEvent.CANT_MOVE, {
+                "message": f"Player got stuck due to weather effects when trying to move to ({nx},{ny}) - {dest_tile.name}.",
                 "reason": "stuck_weather",
                 "from": (self.x, self.y),
                 "to": (nx, ny)
             })))
         else:
             self.event_manager.emit(GameEvent(GameEvent.MOVED, {
+                "message": f"Player moved to ({nx},{ny}) - {dest_tile.name} from ({self.x},{self.y}){cur_tile.name}.",
                 "to": (nx, ny),
                 "from": (self.x, self.y),
                 "tile_name": dest_tile.name
@@ -211,8 +215,9 @@ class Game:
             art = render_room(tile, self.ascii_loader) if self.ascii_tiles else ""
             desc = f"{art}\nYou arrive at {tile.name}. {tile.description}"
             if tile.shop:
-                self.shops.append((self.x, self.y))
+                self.shops.add((self.x, self.y))
                 self.event_manager.emit(GameEvent(GameEvent.FOUND_SHOP, {
+                    "message": "Player found a shop!",
                     "position": (self.x, self.y),
                     "tile_name": tile.name
                 }))
@@ -232,7 +237,7 @@ class Game:
                 desc += "\n\n" + found
                 self.event_manager.emit(GameEvent(GameEvent.FOUND_WEAPON, {
                     "position": (self.x, self.y),
-                    "weapon": self.pending_weapon
+                    "weapon": self.pending_weapon.to_dict()
                 }))
         except Exception:
             pass
@@ -409,7 +414,7 @@ class Game:
             }))
             # Resting in dangerous areas may trigger an ambush
             if random.random() < min(0.2 + tile.danger / 2, 0.75):
-                enemy = generate_enemy(self.player.level, self.x, self.y)
+                enemy = generate_enemy(self.enemy_archetypes, self.player.level, self.x, self.y)
                 note += "\nYou are ambushed in your sleep!"
                 intro = self.enter_combat(enemy)
                 self.event_manager.emit(GameEvent(GameEvent.REST_INTERRUPTED, {

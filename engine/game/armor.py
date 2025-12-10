@@ -7,6 +7,13 @@ class Armor:
     def __str__(self):
         return f"Armor(name={self.name}, defense_bonus={self.defense_bonus})"
 
+    def to_dict(self):
+        return {"name": self.name, "defense_bonus": self.defense_bonus}
+
+    @classmethod
+    def from_dict(cls, d):
+        return cls(d["name"], d["defense_bonus"])
+
 def armor_pool():
     return [
         Armor("Cloth Tunic", 1),
