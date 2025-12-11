@@ -4,7 +4,6 @@ import random
 import time
 
 try:
-
     from engine.game.enemy import Enemy as EnemyModel
     from engine.game.event import EventManager, GameEvent
 except ImportError:
@@ -150,23 +149,26 @@ class Room2D:
                 enemy.x = random.randint(1, self.width - 2)
                 enemy.y = self.height - 2
 
-    def spawn_enemies(self, enemy_archetypes, player_level):
+    def spawn_enemies(self, enemy_archetypes, player_level, max_enemies=2):
         """Creates new enemies for the room."""
-        self.enemies = [
-            EnemyModel(
-                name=random.choice(enemy_archetypes)["name"],
-                ascii="E",
-                level=player_level,
-                max_hp=10 + player_level * 2,
-                hp=10 + player_level * 2,
-                attack=2 + player_level,
-                defense=1 + player_level // 2,
-                xp_reward=5 + player_level,
-                gold_reward=3 + player_level,
-                direction=random.choice([-1, 1])  # Added direction for enemy movement
+        self.enemies = []
+        for _ in range(random.randint(1, max_enemies)):
+            enemy = random.choice(enemy_archetypes)
+            self.enemies.append(
+                EnemyModel(
+                    name=enemy["name"],
+                    ascii=enemy.get("ascii", " _ \n( E)\n ~ \n / \\"),
+                    ascii_left=enemy.get("ascii_left", "(E )\n ~ \n / \\"),
+                    level=player_level,
+                    max_hp=enemy.get("base_hp", 10) + player_level * 2,
+                    hp=enemy.get("base_hp", 10)+ player_level * 2,
+                    attack=enemy.get("base_attack", 1) + player_level,
+                    defense=enemy.get("base_defense", 1) + player_level // 2,
+                    xp_reward=enemy.get("xp_reward", 10) * player_level // 2,
+                    gold_reward=enemy.get("gold_reward", 25) + player_level,
+                    direction=random.choice([-1, 1])  # Added direction for enemy movement
+                )
             )
-            for _ in range(random.randint(1, 3))
-        ]
         self.place_enemies()  # Only place enemies, don't regenerate entire room
 
 
@@ -178,12 +180,14 @@ class Player2D:
         self.dy = 0.0  # Vertical velocity
         self.speed = 1.0
         self.is_jumping = False
+        self.direction = 1
 
 
 class Game2DPlugin:
     def __init__(self, num_rooms=3, room_width=15, room_height=8, enemy_archetypes=None, player_level=1,
                  gravity_pull=0.20, terminal_velocity=3.0):
         self.rooms = []
+        self.safe_rooms = [False] * num_rooms
         self.num_rooms = num_rooms
         self.current_room_idx = 0
         self.enemy_archetypes = enemy_archetypes or [{"name": "Goblin"}]
@@ -226,6 +230,7 @@ class Game2DPlugin:
     def make_room_safe(self, room_idx):
         """Removes all enemies from the specified room."""
         if 0 <= room_idx < self.num_rooms:
+            self.safe_rooms[room_idx] = True
             self.rooms[room_idx].enemies = []
 
     def remove_battle_enemy(self):
@@ -259,8 +264,10 @@ class Game2DPlugin:
         # --- Handle Horizontal Movement (Single discrete step) ---
         new_x_float = self.player.x
         if action == "left":
+            self.player.direction = -1
             new_x_float = self.player.x - 1.0
         elif action == "right":
+            self.player.direction = 1
             new_x_float = self.player.x + 1.0
 
         new_x_int = round(new_x_float)
@@ -282,6 +289,7 @@ class Game2DPlugin:
                 self.event_manager.emit(GameEvent(EVENT_ROOM_ENTERED, {"room_id": new_room.room_id, "index": self.current_room_idx}))
                 # Set player start position in the new room at the entry door
                 self.player.x = float(new_room.width - 1)
+                self.on_player_enter_room(self.current_room_idx)
 
             # Right door check
             door_x_right, door_y_right = room.doors.get('right', (None, None))
@@ -291,6 +299,16 @@ class Game2DPlugin:
                 self.event_manager.emit(GameEvent(EVENT_ROOM_ENTERED, {"room_id": new_room.room_id, "index": self.current_room_idx}))
                 # Set player start position in the new room at the entry door
                 self.player.x = 0.0
+                self.on_player_enter_room(self.current_room_idx)
+
+    def on_player_enter_room(self, room_idx):
+        """Event handler for when the player enters a new room."""
+        if self.safe_rooms[room_idx]:
+            return  # No enemies to spawn in safe rooms
+
+        if 0 <= room_idx < self.num_rooms:
+            room = self.rooms[room_idx]
+            room.spawn_enemies(self.enemy_archetypes, self.player_level)
 
     def update(self, action=None):
         """Main update loop handling movement, physics, and state transitions."""
@@ -397,6 +415,12 @@ CHAR_MAP = {
     ],
     # Player (@) - Simple 4x4 character sprite
     "@": [
+        "  . ",
+        " /@\\",
+        " /\\/",
+        " || "
+    ],
+    "@L": [
         " .  ",
         "/@\\ ",
         "\\/\\ ",
@@ -444,40 +468,162 @@ FALLBACK_MAP = [
 def render_room(room, player):
     """
     Render the room as high-resolution ASCII art using 4x4 blocks per grid cell.
+    Enemies are rendered using their own ascii art, centered horizontally
+    and aligned to the bottom (floor) of their cell.
     """
-
-    # 1. Create the base grid, including Platforms and Doors
+    # 1. Create the base grid
     display_grid = [row[:] for row in room.grid]
 
     # Use rounded position for display
     player_x = round(player.x)
     player_y = round(player.y)
+    player_pos = (player_x, player_y)
 
-    # 2. Overlay the Player and Enemies onto the display grid
+    # 2. Build a map of enemy positions, their ascii art, AND required cell width
+    enemy_ascii_map = {}
+    cell_width_map = {}
+
+    # Initialize all cell widths to 4
+    for y in range(room.height):
+        for x in range(room.width):
+            cell_width_map[(x, y)] = 4
+
+    # Determine enemy art and update cell widths
     for enemy in room.enemies:
-        if 0 <= enemy.y < room.height and 0 <= enemy.x < room.width:
-            display_grid[enemy.y][enemy.x] = "E"
+        x, y = round(enemy.x), round(enemy.y)
+        if 0 <= y < room.height and 0 <= x < room.width:
+            ascii_art = getattr(enemy, "ascii", None)
+            ascii_art_left = getattr(enemy, "ascii_left", None)
+            # Choose left or right facing art based on direction
+            if hasattr(enemy, "direction") and enemy.direction < 0 and ascii_art_left:
+                ascii_art = ascii_art_left
+            if ascii_art and isinstance(ascii_art, str):
+                ascii_art = ascii_art.splitlines()
 
-    # Place player last (so they are always visible)
-    if 0 <= player_y < room.height and 0 <= player_x < room.width:
-        display_grid[player_y][player_x] = "@"
+            if ascii_art and isinstance(ascii_art, list) and ascii_art:
+                enemy_ascii_map[(x, y)] = ascii_art
+                # The cell width must be at least 4, or the width of the widest line
+                max_enemy_width = max(len(line) for line in ascii_art)
+                cell_width_map[(x, y)] = max(4, max_enemy_width)
+            else:
+                # Use a default 4x4 map if no custom art is provided or if it's invalid
+                enemy_ascii_map[(x, y)] = CHAR_MAP.get("E", FALLBACK_MAP)
+                cell_width_map[(x, y)] = 4
+
+    # Player position required width is 4 (or more if standing on an oversized enemy cell)
+    if player_pos not in cell_width_map:
+        cell_width_map[player_pos] = 4
 
     # 3. Render the room line by line
     rendered_output = []
-
     for y in range(room.height):
-        for i in range(4):
+        # Determine the max height for this *grid* row
+        max_cell_height = 4 # Minimum height is 4
+        if player_pos[1] == y:
+            max_cell_height = max(max_cell_height, 4)
+
+        for x in range(room.width):
+            if (x, y) in enemy_ascii_map:
+                max_cell_height = max(max_cell_height, len(enemy_ascii_map[(x, y)]))
+
+        # Iterate over the sub-rows (i) determined by max_cell_height
+        for i in range(max_cell_height):
             line_parts = []
             for x in range(room.width):
-                char = display_grid[y][x]
-                char_map = CHAR_MAP.get(char, FALLBACK_MAP)
-                line_parts.append(char_map[i])
+                # Get the required width for this specific cell
+                cell_width = cell_width_map.get((x, y), 4)
+
+                # Player takes precedence
+                if (x, y) == player_pos:
+                    char_map = CHAR_MAP.get("@", FALLBACK_MAP)
+                    if player.direction < 0:
+                        char_map = CHAR_MAP.get("@L", FALLBACK_MAP)
+                    player_art_line = char_map[i] if i < len(char_map) else " " * 4
+                    player_art_width = 4
+
+                    # Calculate padding to center the 4-wide player art
+                    pad = max(0, cell_width - player_art_width)
+                    left_pad = pad // 2
+                    right_pad = pad - left_pad
+
+                    line = " " * left_pad + player_art_line + " " * right_pad
+                    line_parts.append(line[:cell_width])
+
+                elif (x, y) in enemy_ascii_map:
+                    ascii_art = enemy_ascii_map[(x, y)]
+                    enemy_art_height = len(ascii_art)
+
+                    # --- FIX FOR BOTTOM ALIGNMENT ---
+                    # Calculate the index of the enemy's ASCII line to use for the current sub-row (i).
+                    # This offset determines how many blank lines to render at the top.
+
+                    # `i` is the current sub-row index (0 to max_cell_height - 1)
+                    # `enemy_line_index` is the index into the enemy's art (0 to enemy_art_height - 1)
+
+                    # If max_cell_height is 4 and enemy_art_height is 3:
+                    # Row i=0: index = 0 - 1 = -1 (Blank space)
+                    # Row i=1: index = 1 - 1 = 0 (Enemy line 0)
+                    # Row i=2: index = 2 - 1 = 1 (Enemy line 1)
+                    # Row i=3: index = 3 - 1 = 2 (Enemy line 2)
+
+                    # If max_cell_height is 5 and enemy_art_height is 3:
+                    # Row i=0: index = 0 - 2 = -2 (Blank space)
+                    # Row i=1: index = 1 - 2 = -1 (Blank space)
+                    # Row i=2: index = 2 - 2 = 0 (Enemy line 0)
+                    # ...
+
+                    offset = max_cell_height - enemy_art_height
+                    enemy_line_index = i - offset
+
+                    if 0 <= enemy_line_index < enemy_art_height:
+                        # Render the actual enemy line, centered horizontally
+                        enemy_art_line = ascii_art[enemy_line_index]
+
+                        # Calculate padding to center the enemy art in the cell_width
+                        pad = max(0, cell_width - len(enemy_art_line))
+                        left_pad = pad // 2
+                        right_pad = pad - left_pad
+
+                        line = " " * left_pad + enemy_art_line + " " * right_pad
+                        line_parts.append(line[:cell_width])
+                    else:
+                        # Render blank space for rows above the enemy art
+                        line_parts.append(" " * cell_width)
+
+                else:
+                    # Regular room content (Platform, Door, Empty)
+                    char = display_grid[y][x]
+                    char_map = CHAR_MAP.get(char, FALLBACK_MAP)
+
+                    # Align regular 4x4 art to the bottom by checking the index against the height difference
+                    regular_art_height = len(char_map) # Assume 4 for 4x4
+
+                    # The content should only be drawn if the current sub-row index 'i'
+                    # is within the range of the content's art lines, offset from the bottom.
+                    offset = max_cell_height - regular_art_height
+                    regular_line_index = i - offset
+
+                    if 0 <= regular_line_index < regular_art_height:
+                        regular_art_line = char_map[regular_line_index]
+                        regular_art_width = 4
+
+                        # Pad the 4-wide art to the cell_width (which is 4 here unless an oversized enemy
+                        # expanded the column, in which case the 4x4 art is centered in the wider space).
+                        pad = max(0, cell_width - regular_art_width)
+                        left_pad = pad // 2
+                        right_pad = pad - left_pad
+
+                        line = " " * left_pad + regular_art_line + " " * right_pad
+                        line_parts.append(line[:cell_width])
+                    else:
+                        # Render blank space for rows above the 4x4 art
+                        line_parts.append(" " * cell_width)
 
             rendered_output.append("".join(line_parts))
 
-    # Print the final output
     return "\n".join(rendered_output)
 
+    return "\n".join(rendered_output)
 
 def print_details(room, player, state):
     print("-" * (room.width * 4))  # Separator line based on the rendered width

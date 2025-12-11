@@ -12,9 +12,11 @@ class Enemy:
             xp_reward: int,
             gold_reward: int,
             direction: int = 0,
+            ascii_left: str = None,
     ):
         self.name = name
         self.ascii = ascii
+        self.ascii_left = ascii_left
         self.level = level
         self.max_hp = max_hp
         self.hp = hp
@@ -38,6 +40,8 @@ class Enemy:
             "defense": self.defense,
             "xp_reward": self.xp_reward,
             "gold_reward": self.gold_reward,
+            "direction": self.direction,
+            "ascii_left": self.ascii_left,
         }
 
     @staticmethod
@@ -52,4 +56,6 @@ class Enemy:
             defense=data.get("defense", 2),
             xp_reward=data.get("xp_reward", 0),
             gold_reward=data.get("gold_reward", 0),
+            direction=data.get("direction", 0),
+            ascii_left=data.get("ascii_left", None)
         )

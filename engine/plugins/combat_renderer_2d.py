@@ -1,5 +1,7 @@
 import time
-from typing import List, Dict, Any, Optional
+from typing import List, Any
+
+from engine.game.event import GameEvent
 
 # --- Configuration Constants (Can be moved to a settings file if desired) ---
 # The user-requested dimensions (40x60)
@@ -69,8 +71,7 @@ class ASCIICombatRenderer:
         This method should be called by the main game loop immediately after
         a combat action occurs.
         """
-        # Example events: 'PLAYER_ATTACKS', 'ENEMY_ATTACKS', 'SPELL_CAST'
-        if event_type in ['PLAYER_ATTACKS', 'ENEMY_ATTACKS', 'SPELL_CAST']:
+        if event_type in [GameEvent.ATTACKED, GameEvent.ENEMY_ATTACKED, GameEvent.CAST_SPELL]:
             # NEW: Add the event to the queue
             self.animation_queue.append(event_type)
 
@@ -138,8 +139,8 @@ class ASCIICombatRenderer:
             enemy_ascii_lines = getattr(enemy, 'ascii', " (?) ").split('\n')
 
             # The attack animation frame, placed next to the player/enemy
-            player_attack_frame = self._get_animation_frame('PLAYER_ATTACKS')
-            enemy_attack_frame = self._get_animation_frame('ENEMY_ATTACKS')
+            player_attack_frame = self._get_animation_frame(GameEvent.ATTACKED)
+            enemy_attack_frame = self._get_animation_frame(GameEvent.ENEMY_ATTACKED)
 
             for i, enemy_line in enumerate(enemy_ascii_lines):
                 # Add a small 'hit' animation on the first line when player attacks

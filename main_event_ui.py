@@ -170,7 +170,7 @@ def game2d_loop(game: Game, game2d: Game2DPlugin) -> None:
         render_fn=lambda: render_room_2d(game2d.get_current_room(), game2d.player),
         actions_fn=lambda: [terminal_input.get_controls()],
         combat_fn=lambda: combat_renderer.combat_fn(game, combat_log),
-        shop_fn=lambda: game.look()
+        shop_fn=lambda: game.look(),
     )
     combat_controls = Controls(
         mapping={
@@ -189,11 +189,23 @@ def game2d_loop(game: Game, game2d: Game2DPlugin) -> None:
         },
         description="e (Enter Shop)"
     )
+    explore_modifiers = Controls(
+        mapping={
+            'r': 'rest',
+            'i': 'inv',
+            's': 'stats',
+            'b': 'spells',
+        },
+        description="r (Rest), i (Inventory), s (Stats), b (Spells)"
+    )
 
     while not game.ended:
+        game2d.player_level = game.player.level
+
         if game.state == GameState.EXPLORING:
             game2d.explore()
             terminal_input.controls = default_controls
+            terminal_input.add_modifier(explore_modifiers)
             if game.room_has_shop():
                 terminal_input.add_modifier(enter_shop_modifier)
             if terminal_input.is_off():
@@ -207,6 +219,9 @@ def game2d_loop(game: Game, game2d: Game2DPlugin) -> None:
                 game2d.handle_input(action)
             if action == 'shop':
                 game.shop_enter()
+                terminal_input.clear_modifiers()
+            if action in ('inv', 'stats', 'spells', 'rest'):
+                game_update(game, action)
                 terminal_input.clear_modifiers()
 
         if game.state == GameState.COMBAT:
@@ -238,6 +253,26 @@ def game2d_loop(game: Game, game2d: Game2DPlugin) -> None:
                 break
             if action is not None:
                 game_update(game, action)
+
+        if game.state == GameState.ASKING_QUESTION:
+            terminal_input.controls = Controls(
+                mapping={
+                    'y': 'yes',
+                    'n': 'no',
+                },
+                description="y (Yes), n (No)"
+            )
+            terminal_input.clear_modifiers()
+            action = terminal_input.get_input()
+            if action == 'quit':
+                game.ended = True
+                break
+            if action is not None:
+                game_update(game, action)
+
+        if game.state == GameState.GAME_OVER:
+            terminal_input.restore()
+            game_over_options(game)
 
         # 4. Render
         ui_render(game, render_plugin)
@@ -297,15 +332,10 @@ def game_update(game: Game, cmd: str | None) -> None:
         if acted is not None:
             ui_render(game)
 
-        if cmd == "debug":
-            game_messages = ["Debug position show: " + game.debug_pos()]
-            ui_render(game)
-        else:
-            game_messages = [f"Unknown command [{cmd}]."]
-            ui_render(game)
 
 def game_over_options(game: Game) -> None:
     global game_messages
+    global game_ref_2d
 
     # Player has died; offer options
     if not game.ended and not game.player.is_alive():
@@ -333,7 +363,7 @@ def game_over_options(game: Game) -> None:
             except Exception:
                 size = 5
             tileset = JsonLoader().load("data/tileset.json")
-            fresh = Game.new_random(size=size, tileset=tileset)
+            fresh = Game.new_random(size=size, tileset=tileset, flat=game_ref_2d is not None)
             game.copy_from(fresh)
             game_messages = []
             break  # resume outer loop with fresh game
@@ -381,7 +411,10 @@ def main(argv: List[str]) -> int:
     if choice == "2d":
         size = prompt_map_size(("5", "10", "15", "20"))
         game = Game.new_random(size=size, tileset=tileset, flat=True)
-        game_2d = Game2DPlugin(size, 10, 6, enemy_archetypes=game.enemy_archetypes)
+        game_2d = Game2DPlugin(size, 10, 6,
+                               gravity_pull=0.4,
+                               terminal_velocity=1.2,
+                               enemy_archetypes=game.enemy_archetypes)
         game.warp_to_tile(0,0, "started")
         game_2d.make_room_safe(0)
         return run_game(game, game_2d)
@@ -409,6 +442,7 @@ def run_game(game: Game, game2d: Game2DPlugin = None) -> int:
     game_ref = game
     game_ref_2d = game2d
     if game2d is not None:
+        game2d.enemy_archetypes = game.enemy_archetypes
         game2d.event_manager.subscribe(on_2d_event)
         game2d_loop(game, game2d)
     else:
@@ -428,6 +462,7 @@ def on_2d_event(event: GameEvent) -> None:
 def on_event(event: GameEvent) -> None:
     global last_event
     global game_messages
+    global combat_log
     event_type = event.event_type
     data = event.payload
     last_event = event
@@ -480,11 +515,12 @@ def on_event(event: GameEvent) -> None:
             game_message = "You found a weapon."
     elif event_type == GameEvent.PICKED_UP_WEAPON:
         weapon = data.get('weapon')
-        game_message = f"You picked up the {weapon.name}."
+        game_message = f"You picked up the {weapon['name']}."
     elif event_type == GameEvent.LEFT_WEAPON:
         weapon = data.get('weapon')
-        game_message = f"You left the {weapon.name} behind."
+        game_message = f"You left the {weapon['name']} behind."
     elif event_type == GameEvent.ENTERED_COMBAT:
+        combat_log = []
         game_message = f"Combat started with {data.get('enemy_name')}!"
     elif event_type == GameEvent.EXITED_COMBAT:
         if game_ref_2d is not None:

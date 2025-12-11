@@ -2,6 +2,7 @@
   {
     "name": "Rat",
     "ascii": "  (`-`)\n /     \\\n/       \\",
+    "ascii_left": " (`-`  \n/     \\\n       \\",
     "base_hp": 6,
     "base_defense": 1,
     "base_attack": 3,
@@ -10,7 +11,8 @@
   },
   {
     "name": "Goblin",
-    "ascii": "  <:o)\n /| |\\\n /   \\",
+    "ascii": "  (:o>\n /| |\\\n /   \\",
+    "ascii_left": " <:o)  \n/| |\\\n     \\",
     "base_hp": 10,
     "base_defense": 2,
     "base_attack": 4,
@@ -20,6 +22,7 @@
   {
     "name": "Wolf",
     "ascii": "/\\_/\\\n( o.o )\n > ^ <",
+    "ascii_left": "\\_/\\  \n( o.o )\n > ^ <",
     "base_hp": 12,
     "base_defense": 2,
     "base_attack": 5,
@@ -29,6 +32,7 @@
   {
     "name": "Skeleton",
     "ascii": "  [¬º-°]¬\n   /|\\\n   / \\",
+    "ascii_left": " ¬[º-°¬] \n   /|\\\n     \\",
     "base_hp": 14,
     "base_defense": 3,
     "base_attack": 6,
@@ -37,7 +41,8 @@
   },
   {
     "name": "Bandit",
-    "ascii": "(-_-)\n /|\\======\n / \\",
+    "ascii": "( -_-)\n /|\\======\n / \\",
+    "ascii_left": "(-_- ) \n /|\\======\n     \\",
     "base_hp": 16,
     "base_defense": 3,
     "base_attack": 7,
@@ -47,6 +52,7 @@
   {
     "name": "Troll",
     "ascii": "ʕ •ᴥ•ʔ\n /|\\\n / \\",
+    "ascii_left": " ʕ•ᴥ• ʕ\n /|\\\n     \\",
     "base_hp": 22,
     "base_defense": 5,
     "base_attack": 9,
@@ -55,7 +61,8 @@
   },
   {
     "name": "Orc",
-    "ascii": " (°□°)\n /|\\\n / \\",
+    "ascii": " ( °□°)\n /|\\\n / \\",
+    "ascii_left": "(°□° ) \n /|\\\n     \\",
     "base_hp": 18,
     "base_defense": 4,
     "base_attack": 8,
@@ -64,7 +71,8 @@
   },
   {
     "name": "Slime",
-    "ascii": "  ~( oo )~\n   /    \\\n  /      \\",
+    "ascii": "  ~( oo)~\n   /    \\\n  /      \\",
+    "ascii_left": " ~(oo )~ \n   /    \\\n         \\",
     "base_hp": 8,
     "base_defense": 1,
     "base_attack": 2,
@@ -73,7 +81,8 @@
   },
   {
     "name": "Vampire",
-    "ascii": " ///(^v^)\\\n   /|\\\n   / \\",
+    "ascii": " //(^v^)\\\n   /|\\\n   / \\",
+    "ascii_left": " \\(^v^)// \n   /|\\\n     \\",
     "base_hp": 20,
     "base_defense": 4,
     "base_attack": 10,
@@ -82,7 +91,8 @@
   },
   {
     "name": "Dragon",
-    "ascii": "/\\^/\\\n( o.o )\n > v <",
+    "ascii": "\\/\\  \n(  o.o)\n > v <",
+    "ascii_left": "/\\^/\\\n(o.o  )\n > v <",
     "base_hp": 40,
     "base_defense": 8,
     "base_attack": 15,
@@ -92,6 +102,7 @@
   {
     "name": "Imp",
     "ascii": "  >:)\n /|\\\n / \\",
+    "ascii_left": " (:<\n /|\\\n / \\",
     "base_hp": 9,
     "base_defense": 2,
     "base_attack": 4,
@@ -100,7 +111,8 @@
   },
   {
     "name": "Giant Spider",
-    "ascii": " /\\(o_o)/\\\n   /|\\\n   / \\",
+    "ascii": " /\\( o_o)/\\",
+    "ascii_left": " /\\(o_o )/\\",
     "base_hp": 15,
     "base_defense": 3,
     "base_attack": 6,
@@ -110,6 +122,7 @@
   {
     "name": "Witch",
     "ascii": " <(^_^)>\n  /|\\\n  / \\",
+    "ascii_left": ">(^_^)< \n  /|\\\n     \\",
     "base_hp": 18,
     "base_defense": 4,
     "base_attack": 8,
@@ -119,6 +132,7 @@
   {
     "name": "Zombie",
     "ascii": "  [o_o]\n   /|\\\n   / \\",
+    "ascii_left": " [o_o]  \n   /|\\\n     \\",
     "base_hp": 14,
     "base_defense": 3,
     "base_attack": 5,
@@ -128,6 +142,7 @@
   {
     "name": "Minotaur",
     "ascii": "  (°_°)\n  /|\\\n  / \\",
+    "ascii_left": " (°_°)  \n  /|\\\n     \\",
     "base_hp": 30,
     "base_defense": 6,
     "base_attack": 12,
@@ -136,7 +151,8 @@
   },
   {
     "name": "Hydra",
-    "ascii": "  ~<:o)~~~~\n   /|\\\n   / \\",
+    "ascii": " ~~~~(o:>~ \n   /|\\\n     \\",
+    "ascii_left": "  ~<:o)~~~~\n   /|\\\n   / \\",
     "base_hp": 35,
     "base_defense": 7,
     "base_attack": 14,
@@ -145,7 +161,8 @@
   },
   {
     "name": "Sorceress",
-    "ascii": "  <(^_^<)\n   /|\\\n   / \\",
+    "ascii": "  (>^_^>)\n   /|\\\n   / \\",
+    "ascii_left": "  <(^_^<)\n   /|\\\n   / \\",
     "base_hp": 25,
     "base_defense": 5,
     "base_attack": 10,
