@@ -60,6 +60,10 @@ class Game:
     def current_tile(self) -> Tile:
         return self.world.get_tile(self.x, self.y)
 
+    def room_has_shop(self) -> bool:
+        tile = self.current_tile()
+        return getattr(tile, "shop", False)
+
     @staticmethod
     def new_random(size: int, tileset: dict, seed: int = None, flat: bool = False) -> "Game":
         w = World.generate_random(size, tileset, seed, flat)

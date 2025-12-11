@@ -15,6 +15,7 @@ from animated_combat_start import show_combat_start_event
 from animated_rest import show_rest_event
 from animated_screens import show_battle_result, wait_keypress
 from engine.game import Game
+from engine.game.enemy import Enemy
 from engine.game.ascii_renderer import render_room
 from engine.game.event import GameEvent
 from engine.game.game_state import GameState
@@ -22,9 +23,11 @@ from json_loader import JsonLoader
 from persistence import load_game, save_game, SAVE_FILE
 from text_loader import TextLoader
 from text_ui import print_game_ui
-from engine.plugins.game2d import Game2DPlugin, render_room as render_room_2d, TerminalInputHandler, EVENT_ROOM_ENTERED, \
-    EVENT_ENTER_COMBAT
+from engine.plugins.game2d import (Game2DPlugin, render_room as render_room_2d, EVENT_ROOM_ENTERED, EVENT_ENTER_COMBAT)
+from engine.plugins.combat_renderer_2d import ASCIICombatRenderer
+from engine.plugins.terminal_input_handler import TerminalInputHandler, Controls, default_controls
 
+combat_renderer = ASCIICombatRenderer()
 last_event: GameEvent = None
 game_messages = []
 error_messages = ""
@@ -32,9 +35,23 @@ combat_log = []
 
 
 class RenderPlugin:
-    def __init__(self, render_fn: callable, actions_fn: callable = None):
+    def __init__(self, render_fn, actions_fn=None, combat_fn=None, shop_fn=None):
         self.render_fn = render_fn
         self.actions_fn = actions_fn
+        self.combat_fn = combat_fn
+        self.shop_fn = shop_fn
+
+    def get_art(self, game_state: str) -> tuple[str, list]:
+        if game_state == GameState.COMBAT and self.combat_fn is not None:
+            room_art = self.combat_fn()
+        elif game_state == GameState.SHOP and self.shop_fn is not None:
+            room_art = self.shop_fn()
+        else:
+            room_art = self.render_fn()
+
+        actions = self.actions_fn() if self.actions_fn is not None else []
+
+        return room_art, actions
 
 
 def clear_screen() -> None:
@@ -57,8 +74,7 @@ def ui_render(game: Game, renderPlugin: RenderPlugin = None) -> None:
     room_art = game.look() if game.state == GameState.SHOP else render_room(game.current_tile(), game.ascii_loader)
     actions = available_actions_str(game)
     if renderPlugin is not None:
-        room_art = renderPlugin.render_fn()
-        actions = renderPlugin.actions_fn() if renderPlugin.actions_fn is not None else actions
+        room_art, actions = renderPlugin.get_art(game.state)
     if len(error_messages) > 0:
         room_art = error_messages
     clear_screen()
@@ -141,33 +157,83 @@ def prompt_map_size(options=("3", "5", "7", "9")) -> int:
 def game2d_loop(game: Game, game2d: Game2DPlugin) -> None:
     global game_messages
     global last_event
+    global combat_log
     global error_messages
 
+    """Main interactive loop for 2D plugin."""
     terminal_input = TerminalInputHandler()
     render_plugin = RenderPlugin(
         render_fn=lambda: render_room_2d(game2d.get_current_room(), game2d.player),
-        actions_fn=lambda: [terminal_input.get_controls()]
+        actions_fn=lambda: [terminal_input.get_controls()],
+        combat_fn=lambda: combat_renderer.combat_fn(game, combat_log),
+        shop_fn=lambda: game.look()
+    )
+    combat_controls = Controls(
+        mapping={
+            'a': 'attack',
+            'd': 'defend',
+            's': 'spell',
+            'p': 'potion',
+            'f': 'flee',
+            'q': 'quit',
+        },
+        description="Controls: a (Attack), d (Defend), s (Spell), p (Potion), f (Flee), q (Quit)"
+    )
+    enter_shop_modifier = Controls(
+        mapping={
+            'e': 'shop',
+        },
+        description="e (Enter Shop)"
     )
 
-    while game.ended is False:
-        # 1. Process Input (Non-blocking check)
-        action = terminal_input.get_input()
+    while not game.ended:
+        if game.state == GameState.EXPLORING:
+            game2d.explore()
+            terminal_input.controls = default_controls
+            if game.room_has_shop():
+                terminal_input.add_modifier(enter_shop_modifier)
+            if terminal_input.is_off():
+                terminal_input.turn_on()
+            game2d.update()
+            action = terminal_input.get_input()
+            if action == 'quit':
+                game.ended = True
+                break
+            if action in ('left', 'right', 'jump'):
+                game2d.handle_input(action)
+            if action == 'shop':
+                game.shop_enter()
+                terminal_input.clear_modifiers()
 
-        # Handle quit immediately
-        if action == 'quit':
-            break
+        if game.state == GameState.COMBAT:
+            animated_events()
+            if not combat_renderer.is_animating():
+                terminal_input.controls = combat_controls
+                terminal_input.clear_modifiers()
+                action = terminal_input.get_input()
+                if action == 'quit':
+                    game.ended = True
+                    break
+                if action is not None:
+                    game_update(game, action)
+            combat_renderer.update(game)
 
-        # 2. Update Game State (Applies physics/gravity)
-        game2d.update()
-
-        # TODO: Sync game2d state back to main game if needed
-        if game2d.state == "combat":
-            game2d.state = "exploring"
-
-        # 3. Handle Discrete Actions (Movement, Jump, Transitions)
-        if action in ('left', 'right', 'jump'):
-            # In tap-based input, we handle the movement directly here.
-            game2d.handle_input(action)
+        if game.state == GameState.SHOP:
+            actions = game.available_actions()
+            mapping = {action['hotkeys'][-1]: action['id'] for action in actions if 'hotkeys' in action and action['hotkeys']}
+            description = "Controls: " + ", ".join([f"{action['hotkeys'][-1]} ({action['label']})" for action in actions if 'hotkeys' in action and action['hotkeys']])
+            shop_controls = Controls(
+                mapping=mapping,
+                description=description
+            )
+            terminal_input.controls = shop_controls
+            terminal_input.clear_modifiers()
+            action = terminal_input.get_input()
+            if action == 'quit':
+                game.ended = True
+                break
+            if action is not None:
+                game_update(game, action)
 
         # 4. Render
         ui_render(game, render_plugin)
@@ -177,92 +243,101 @@ def game2d_loop(game: Game, game2d: Game2DPlugin) -> None:
 
 
 def game_loop(game: Game) -> None:
-    global game_messages
-    global last_event
-    global error_messages
-
     """Main interactive loop. On death, allow Load or Restart instead of hard exit."""
-    while True and game.ended is False:
-        # Start or resume session
-        game.available_actions()
-        ui_render(game)
-        while game.player.is_alive():
-            try:
-                cmd = input("\n> ").strip().lower()
-            except (EOFError, KeyboardInterrupt):
-                print("\nGoodbye.")
-                return
+    while not game.ended and game.player.is_alive():
+        cmd = get_user_input()
+        game_update(game, cmd)
+        if game.ended:
+            break
+    if not game.player.is_alive():
+        game_over_options(game)
 
-            # First, try the decoupled actions API so any interface can drive the game
-            error_messages = ""
-            acted = game.execute_action(cmd)
-            if "failed" in (acted or "").lower() and "Traceback (most recent call last):" in (acted or ""):
-                error_messages = acted  # capture traceback lines
-                game_messages = ["An error occurred during that action."]
+def get_user_input() -> str | None:
+    try:
+        return input("\n> ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        print("\nGoodbye.")
 
-            if "Inventory:" in (acted or ""):
-                game_messages.append((acted or "").replace("\n", " "))
+def game_update(game: Game, cmd: str | None) -> None:
+    global combat_log
+    global error_messages
+    global last_event
+    global game_messages
 
-            if "Stats for" in (acted or ""):
-                game_messages.append((acted or "").replace("\n", " "))
+    # Start or resume session
+    game.available_actions()
+    ui_render(game)
+    if game.player.is_alive():
 
-            if "Spells:" in (acted or ""):
-                game_messages.append((acted or "").replace("\n", " "))
+        # First, try the decoupled actions API so any interface can drive the game
+        error_messages = ""
+        acted = game.execute_action(cmd)
+        if "failed" in (acted or "").lower() and "Traceback (most recent call last):" in (acted or ""):
+            error_messages = acted  # capture traceback lines
+            game_messages = ["An error occurred during that action."]
 
-            if len(game_messages) > 3:
-                game_messages = game_messages[-3:]
+        if "Inventory:" in (acted or ""):
+            game_messages.append((acted or "").replace("\n", " "))
 
-            animated_events()
+        if "Stats for" in (acted or ""):
+            game_messages.append((acted or "").replace("\n", " "))
 
-            if game.ended:
-                break  # exit to outer loop on game end
-            if acted is not None:
-                ui_render(game)
-                continue
+        if "Spells:" in (acted or ""):
+            game_messages.append((acted or "").replace("\n", " "))
 
-            if cmd == "debug":
-                game_messages = ["Debug position show: " + game.debug_pos()]
-                ui_render(game)
-            else:
-                game_messages = [f"Unknown command [{cmd}]."]
-                ui_render(game)
+        if len(game_messages) > 3:
+            game_messages = game_messages[-3:]
 
         animated_events()
-        # Player has died; offer options
-        if not game.ended:
-            clear_screen()
-            print("Game Over.\n[L]oad  |  [R]estart  |  [Q]uit")
-        while True and game.ended is False:
-            try:
-                choice = input("> ").strip().lower()
-            except (EOFError, KeyboardInterrupt):
-                print("\nGoodbye.")
-                return
 
-            if choice in ("l", "load"):
-                loaded = Game.from_dict(load_game(SAVE_FILE))
-                if loaded:
-                    game.copy_from(loaded)
-                    game_messages = []
-                    break  # resume outer loop with loaded game
-                else:
-                    print("No save found or save file invalid.\n[L]oad  |  [R]estart  |  [Q]uit")
-                    continue
-            if choice in ("r", "restart"):
-                # Restart with a fresh world of the same size
-                try:
-                    size = max(game.world.width, game.world.height)
-                except Exception:
-                    size = 5
-                tileset = JsonLoader().load("data/tileset.json")
-                fresh = Game.new_random(size=size, tileset=tileset)
-                game.copy_from(fresh)
+        if acted is not None:
+            ui_render(game)
+
+        if cmd == "debug":
+            game_messages = ["Debug position show: " + game.debug_pos()]
+            ui_render(game)
+        else:
+            game_messages = [f"Unknown command [{cmd}]."]
+            ui_render(game)
+
+def game_over_options(game: Game) -> None:
+    global game_messages
+
+    # Player has died; offer options
+    if not game.ended and not game.player.is_alive():
+        clear_screen()
+        print("Game Over.\n[L]oad  |  [R]estart  |  [Q]uit")
+    while not game.player.is_alive():
+        choice = get_user_input()
+        if choice is None:
+            game.ended = True
+            return
+
+        if choice in ("l", "load"):
+            loaded = Game.from_dict(load_game(SAVE_FILE))
+            if loaded:
+                game.copy_from(loaded)
                 game_messages = []
-                break  # resume outer loop with fresh game
-            if choice in ("q", "quit"):
-                print("Farewell, adventurer.")
-                return
-            print("Please enter L, R, or Q.")
+                break  # resume outer loop with loaded game
+            else:
+                print("No save found or save file invalid.\n[L]oad  |  [R]estart  |  [Q]uit")
+                continue
+        if choice in ("r", "restart"):
+            # Restart with a fresh world of the same size
+            try:
+                size = max(game.world.width, game.world.height)
+            except Exception:
+                size = 5
+            tileset = JsonLoader().load("data/tileset.json")
+            fresh = Game.new_random(size=size, tileset=tileset)
+            game.copy_from(fresh)
+            game_messages = []
+            break  # resume outer loop with fresh game
+        if choice in ("q", "quit"):
+            print("Farewell, adventurer.")
+            game.ended = True
+            return
+        print("Please enter L, R, or Q.")
 
 
 def animated_events() -> None:
@@ -273,21 +348,16 @@ def animated_events() -> None:
             clear_screen()
             show_battle_result(last_event.payload, game_ref.player.level)
             wait_keypress("Press any key to continue...")
-            last_event = None  # reset after showing
-
-    if last_event is not None:
         if (last_event.event_type == GameEvent.RESTED or
                 last_event.event_type == GameEvent.REST_INTERRUPTED):
             show_rest_event(last_event.payload, width=90)
             wait_keypress("Press any key to continue...")
-            last_event = None  # reset after showing
-
-    if last_event is not None:
-        if (last_event.event_type == GameEvent.ENTERED_COMBAT):
+        if last_event.event_type == GameEvent.ENTERED_COMBAT:
             clear_screen()
             show_combat_start_event(last_event.payload)
             wait_keypress("Press any key to continue...")
-            last_event = None  # reset after showing
+
+    last_event = None  # reset after showing
 
 
 def main(argv: List[str]) -> int:
@@ -306,8 +376,10 @@ def main(argv: List[str]) -> int:
 
     if choice == "2d":
         size = prompt_map_size(("5", "10", "15", "20"))
-        game_2d = Game2DPlugin(size, 10, 6)
         game = Game.new_random(size=size, tileset=tileset, flat=True)
+        game_2d = Game2DPlugin(size, 10, 6, enemy_archetypes=game.enemy_archetypes)
+        game.warp_to_tile(0,0, "started")
+        game_2d.make_room_safe(0)
         return run_game(game, game_2d)
     else:
         # New game
@@ -317,10 +389,12 @@ def main(argv: List[str]) -> int:
 
 
 game_ref: Game = None
+game_ref_2d: Game2DPlugin = None
 
 
 def run_game(game: Game, game2d: Game2DPlugin = None) -> int:
     global game_ref
+    global game_ref_2d
     game.data_loader = JsonLoader()
     game.ascii_loader = TextLoader("data/rooms")
     game.load_configurations("data/enemies.json")
@@ -329,6 +403,7 @@ def run_game(game: Game, game2d: Game2DPlugin = None) -> int:
     game.load_fn = load_game
     game.event_manager.subscribe(on_event)
     game_ref = game
+    game_ref_2d = game2d
     if game2d is not None:
         game2d.event_manager.subscribe(on_2d_event)
         game2d_loop(game, game2d)
@@ -341,6 +416,8 @@ def on_2d_event(event: GameEvent) -> None:
     global game_ref
     if event.event_type == EVENT_ROOM_ENTERED:
         game_ref.warp_to_tile(event.payload['index'], 0, "moved")
+    elif event.event_type == EVENT_ENTER_COMBAT:
+        game_ref.enter_combat(Enemy.from_dict(event.payload['enemy']))
     pass
 
 
@@ -406,6 +483,7 @@ def on_event(event: GameEvent) -> None:
     elif event_type == GameEvent.ENTERED_COMBAT:
         game_message = f"Combat started with {data.get('enemy_name')}!"
     elif event_type == GameEvent.EXITED_COMBAT:
+        game_ref_2d.remove_battle_enemy()
         if data.get('victory'):
             game_message = (f"You defeated {data.get('enemy_name')} and "
                             f"gained {data.get('gold_looted', 0)} gold and {data.get('xp_gained')} XP.")
@@ -452,6 +530,7 @@ def on_event(event: GameEvent) -> None:
     else:
         game_message = data.get("message") if hasattr(data, "message") else f"Event: {event_type}"
     if game_ref.state == GameState.COMBAT:
+        combat_renderer.trigger_animation(event_type)
         combat_log.append(game_message)
         if len(combat_log) > 5:
             combat_log.pop(0)

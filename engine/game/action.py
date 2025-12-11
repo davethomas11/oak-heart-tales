@@ -118,7 +118,7 @@ class _Actions:
                     Action(
                         id=f"shop_buy::{item.lower()}",
                         label=f"Buy {item} (Gold {shop[item]})",
-                        hotkeys=[f"buy {item}".lower(), f"{index}", item],
+                        hotkeys=[f"buy {item}".lower(), item, f"{index}"],
                         category="shop"
                     )
                 )
@@ -126,7 +126,7 @@ class _Actions:
             actions.append(Action("shop_exit", "Exit Shop", ["exit", "e"], "shop"))
             actions.append(Action("look", "View Shop", ["look", "l"], "shop"))
             actions.append(Action("stats", "Stats", ["stats", "s"], "shop"))
-            actions.append(Action("spells", "Spells", ["spells", "spellbook", "sp"], "info")),
+            actions.append(Action("spells", "Spells", ["spells", "spellbook", "b"], "info")),
             actions.append(Action("inventory", "Inventory", ["inv", "inventory", "i"], "info"))
             # Build exec map for shop
             self._exec_map = {

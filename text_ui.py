@@ -340,9 +340,9 @@ def print_game_ui(
         # Actions panel
         actions = state.get("available_actions", ["[A]ttack", "[D]efend", "[I]tem", "[R]un"])
         action_lines = []
-        action_lines.append("Available Actions:")
         for i in range(0, len(actions), 3):
-            action_lines.append("  ".join(actions[i:i+3]))
+            wrapped = wrap_text("  ".join(actions[i:i+3]), width - 2)
+            action_lines.extend(wrapped)
         action_inner_h = 4
         action_lines = safe_lines(action_lines, w=width - 2, h=action_inner_h)
         bottom_lines.extend(draw_panel("Actions", action_lines, w=width))

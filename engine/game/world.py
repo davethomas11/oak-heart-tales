@@ -130,7 +130,8 @@ class World:
         for y in range(height):
             row: list = []
             for x in range(width):
-                if x == cx and y == cy:
+                if (x == cx and y == cy) or (flat and x == 0):
+                    # place village at center (or start if flat)
                     row.append(Tile.from_dict(village_def))
                     continue
                 # choose a random base tile

@@ -12,6 +12,9 @@ except ImportError:
         def __init__(self, **kwargs):
             self.__dict__.update(kwargs)
 
+        def to_dict(self):
+            return self.__dict__
+
 
     class GameEvent:
         def __init__(self, event_type, data=None):
@@ -192,7 +195,7 @@ class Game2DPlugin:
         self.jump_velocity = 2.0  # Fixed jump speed
         self.enemy_speed_divider = 7
         self.enemy_move_counter = 0
-
+        self.ignore_combat = False
         self._generate_rooms(num_rooms, room_width, room_height)
 
         # Player starts in the first room's designated start position
@@ -219,6 +222,22 @@ class Game2DPlugin:
             )
             room.spawn_enemies(self.enemy_archetypes, self.player_level)
             self.rooms.append(room)
+
+    def make_room_safe(self, room_idx):
+        """Removes all enemies from the specified room."""
+        if 0 <= room_idx < self.num_rooms:
+            self.rooms[room_idx].enemies = []
+
+    def remove_battle_enemy(self):
+        """Removes the current combat enemy from the room after combat ends."""
+        room = self.get_current_room()
+        if self.combat_enemy in room.enemies:
+            room.enemies.remove(self.combat_enemy)
+        self.combat_enemy = None
+
+    def explore(self):
+        """Sets the game state back to exploring."""
+        self.state = "exploring"
 
     def get_current_room(self):
         return self.rooms[self.current_room_idx]
@@ -335,13 +354,14 @@ class Game2DPlugin:
                         enemy.x = next_x_after_check
 
         # --- Combat Check ---
-        for enemy in room.enemies:
-            # Collision detected: Player and enemy occupy the same space
-            if player_x_int == enemy.x and round(self.player.y) == enemy.y:
-                self.state = "combat"
-                self.combat_enemy = enemy
-                self.event_manager.emit(GameEvent(EVENT_ENTER_COMBAT, {"enemy_name": enemy.name}))
-                break
+        if not self.ignore_combat:
+            for enemy in room.enemies:
+                # Collision detected: Player and enemy occupy the same space
+                if player_x_int == enemy.x and round(self.player.y) == enemy.y:
+                    self.state = "combat"
+                    self.combat_enemy = enemy
+                    self.event_manager.emit(GameEvent(EVENT_ENTER_COMBAT, {"enemy": enemy.to_dict()}))
+                    break
 
         return self.get_state()
 
@@ -482,91 +502,15 @@ def print_minimap(plugin):
 
     print(" " * padding + "Minimap: " + "".join(map_parts))
 
-
-class TerminalInputHandler:
-    # Map keys to actions
-    KEY_ACTION_MAP = {
-        'a': 'left',
-        'd': 'right',
-        'w': 'jump',
-        ' ': 'jump',
-        'q': 'quit',
-        # Arrow keys (escape sequences)
-        '\x1b[D': 'left',  # Left arrow
-        '\x1b[C': 'right',  # Right arrow
-        '\x1b[A': 'jump',  # Up arrow
-    }
-
-    def __init__(self):
-        import termios
-        import sys
-        import tty
-        self.ORIGINAL_TERMIOS_SETTINGS = termios.tcgetattr(sys.stdin)
-        try:
-            tty.setcbreak(sys.stdin)
-        except termios.error as e:
-            print(f"Error setting terminal mode: {e}. Check if you are running in a restricted environment.")
-            # Restore original settings before exit
-            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.ORIGINAL_TERMIOS_SETTINGS)
-            return
-        except Exception as e:
-            print(f"An unexpected error occurred: {e}")
-            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.ORIGINAL_TERMIOS_SETTINGS)
-            return
-
-    def restore(self):
-        import termios
-        import sys
-        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.ORIGINAL_TERMIOS_SETTINGS)
-
-    def get_single_key(self):
-        import sys
-        import select
-        """Reads a single character from stdin instantly."""
-        try:
-            if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
-                return sys.stdin.read(1)
-        except Exception:
-            pass
-        return None
-
-    def get_input(self):
-        import sys
-        import select
-
-        action = None
-        key = self.get_single_key()
-
-        if key is not None:
-            # --- FIX: Restore Multi-character escape sequence (Arrow Keys) Logic ---
-            # Check for the start of an escape sequence
-            if key == '\x1b':
-                # Read up to 2 more characters to get the full sequence (e.g., \x1b[D)
-                if sys.stdin in select.select([sys.stdin], [], [], 0.01)[0]:
-                    key += sys.stdin.read(1)
-                    if sys.stdin in select.select([sys.stdin], [], [], 0.01)[0]:
-                        key += sys.stdin.read(1)
-            # --- END Arrow Key Logic ---
-
-            if key in self.KEY_ACTION_MAP:
-                action = self.KEY_ACTION_MAP[key]
-
-        return action
-
-    def get_controls(self):
-        return "Controls: a/d or Arrows (Move), w/space or Up Arrow (Jump), q (Quit)"
-
-    def print_controls(self):
-        print(self.get_controls())
-
-
 # --- Main function using tty/termios for non-blocking input ---
 def main():
     import os
+    from terminal_input_handler import TerminalInputHandler
     terminal_input = TerminalInputHandler()
 
     # 1. Initialize the game
     plugin = Game2DPlugin(num_rooms=3, room_width=15, room_height=8)
+    plugin.ignore_combat = True  # Disable combat for this demo
     clear_command = "cls" if os.name == "nt" else "clear"
 
     print("--- 2D Platformer Game (Terminal Raw Mode) ---")
