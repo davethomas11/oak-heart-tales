@@ -117,12 +117,16 @@ def banner() -> str:
     return (
             "=" * 70
             + "\n"
-            + banner_title
+            + "\033[36m" + banner_title + "\033[0m"
             + banner_sub
             + "\n"
             + "-~-" * 24
             + "\nExplore, fight, and grow stronger.\n"
             + "=" * 70
+            + "\n"
+            + "Developed by Dave Thomas https://www.linkedin.com/in/dave-t-82718646/\n"
+            + "=" * 70
+            + "\nSet terminal width and height to at least 90x40 for best experience.\n"
     )
 
 
@@ -483,7 +487,8 @@ def on_event(event: GameEvent) -> None:
     elif event_type == GameEvent.ENTERED_COMBAT:
         game_message = f"Combat started with {data.get('enemy_name')}!"
     elif event_type == GameEvent.EXITED_COMBAT:
-        game_ref_2d.remove_battle_enemy()
+        if game_ref_2d is not None:
+            game_ref_2d.remove_battle_enemy()
         if data.get('victory'):
             game_message = (f"You defeated {data.get('enemy_name')} and "
                             f"gained {data.get('gold_looted', 0)} gold and {data.get('xp_gained')} XP.")
