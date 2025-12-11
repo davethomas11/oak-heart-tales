@@ -8,6 +8,7 @@ Run: python3 main.py
 """
 
 import sys
+import time
 from typing import List
 
 from animated_combat_start import show_combat_start_event
@@ -21,11 +22,19 @@ from json_loader import JsonLoader
 from persistence import load_game, save_game, SAVE_FILE
 from text_loader import TextLoader
 from text_ui import print_game_ui
+from engine.plugins.game2d import Game2DPlugin, render_room as render_room_2d, TerminalInputHandler, EVENT_ROOM_ENTERED, \
+    EVENT_ENTER_COMBAT
 
 last_event: GameEvent = None
 game_messages = []
 error_messages = ""
 combat_log = []
+
+
+class RenderPlugin:
+    def __init__(self, render_fn: callable, actions_fn: callable = None):
+        self.render_fn = render_fn
+        self.actions_fn = actions_fn
 
 
 def clear_screen() -> None:
@@ -42,50 +51,76 @@ def available_actions_str(game: Game) -> list:
             lines.append(f"{action['label']} ({', '.join(action['hotkeys'])})")
     return lines
 
-def ui_render(game: Game) -> None:
+
+def ui_render(game: Game, renderPlugin: RenderPlugin = None) -> None:
     """Clear the screen and render the provided text."""
     room_art = game.look() if game.state == GameState.SHOP else render_room(game.current_tile(), game.ascii_loader)
+    actions = available_actions_str(game)
+    if renderPlugin is not None:
+        room_art = renderPlugin.render_fn()
+        actions = renderPlugin.actions_fn() if renderPlugin.actions_fn is not None else actions
     if len(error_messages) > 0:
         room_art = error_messages
     clear_screen()
     print_game_ui(lambda: room_art,
                   game.player.to_dict(), {
-        'in_combat': game.state == GameState.COMBAT,
-        'game_state': game.state,
-        'room': game.current_tile().name,
-        'room_art': room_art,
-        'room_description': game.current_tile().description,
-        'weather': game.current_tile().weather.describe(),
-        'map': game.map(),
-        'messages': game_messages,
-        'enemies': [game.enemy.to_dict() if game.enemy else None],
-        'combat_log': combat_log,
-        'available_actions': available_actions_str(game),
-        'question': {
-            'prompt': game.question,
-            'options': ["Yes", "No"]
-        } if game.state == GameState.ASKING_QUESTION else None
-    }, 90, 40, True)
+                      'in_combat': game.state == GameState.COMBAT,
+                      'game_state': game.state,
+                      'room': game.current_tile().name,
+                      'room_art': room_art,
+                      'room_description': game.current_tile().description,
+                      'weather': game.current_tile().weather.describe(),
+                      'map': game.map(),
+                      'messages': game_messages,
+                      'enemies': [game.enemy.to_dict() if game.enemy else None],
+                      'combat_log': combat_log,
+                      'available_actions': actions,
+                      'question': {
+                          'prompt': game.question,
+                          'options': ["Yes", "No"]
+                      } if game.state == GameState.ASKING_QUESTION else None
+                  }, 90, 40, True)
+
+
+banner_title = """
+   ___   _   _  __  _  _ ___   _   ___ _____   _____ _   _    ___ ___ 
+  / _ \ /_\ | |/ / | || | __| /_\ | _ \_   _| |_   _/_\ | |  | __/ __|
+ | (_) / _ \| ' <  | __ | _| / _ \|   / | |     | |/ _ \| |__| _|\__ \\
+  \___/_/ \_\_|\_\ |_||_|___/_/ \_\_|_\ |_|     |_/_/ \_\____|___|___/
+                                                                                
+"""
+banner_sub = """
+                    ▄▖  ▄▖▘      ▄▖    ▗      ▌      ▗       
+                    ▌▌  ▐ ▌▛▌▌▌  ▐ █▌▚▘▜▘  ▀▌▛▌▌▌█▌▛▌▜▘▌▌▛▘█▌
+                    ▛▌  ▐ ▌▌▌▙▌  ▐ ▙▖▞▖▐▖  █▌▙▌▚▘▙▖▌▌▐▖▙▌▌ ▙▖
+                             ▄▌                              
+"""
 
 
 def banner() -> str:
     return (
-            "=" * 50
+            "=" * 70
             + "\n"
-            + "Oakheart Tales: A Tiny Text Adventure\n"
-            + "Explore, fight, and grow stronger. Type 'help' to begin.\n"
-            + "=" * 50
+            + banner_title
+            + banner_sub
+            + "\n"
+            + "-~-" * 24
+            + "\nExplore, fight, and grow stronger.\n"
+            + "=" * 70
     )
 
 
 def prompt_start_menu() -> str:
     clear_screen()
     print(banner())
-    print("[N]ew Game  |  [L]oad Game  |  [Q]uit")
+    print("\n")
+    print("[N]ew Game  |  [2]d New Game  |  [L]oad Game  |  [Q]uit")
     while True:
         choice = input("> ").strip().lower()
         if choice in ("n", "new"):
             return "new"
+        if choice in ("2", "2d", "2d new"):
+            return "2d"
         if choice in ("l", "load"):
             return "load"
         if choice in ("q", "quit"):
@@ -93,14 +128,52 @@ def prompt_start_menu() -> str:
         print("Please enter N, L, or Q.")
 
 
-def prompt_map_size() -> int:
+def prompt_map_size(options=("3", "5", "7", "9")) -> int:
     clear_screen()
-    print("Choose map size: 3, 5, 7, 9")
+    print("Choose map size: " + ", ".join(options))
     while True:
         s = input("> ").strip()
-        if s in ("3", "5", "7", "9"):
+        if s in options:
             return int(s)
-        print("Invalid size. Choose 3, 5, 7 or 9.")
+        print("Invalid size. Choose " + ", ".join(options) + ".")
+
+
+def game2d_loop(game: Game, game2d: Game2DPlugin) -> None:
+    global game_messages
+    global last_event
+    global error_messages
+
+    terminal_input = TerminalInputHandler()
+    render_plugin = RenderPlugin(
+        render_fn=lambda: render_room_2d(game2d.get_current_room(), game2d.player),
+        actions_fn=lambda: [terminal_input.get_controls()]
+    )
+
+    while game.ended is False:
+        # 1. Process Input (Non-blocking check)
+        action = terminal_input.get_input()
+
+        # Handle quit immediately
+        if action == 'quit':
+            break
+
+        # 2. Update Game State (Applies physics/gravity)
+        game2d.update()
+
+        # TODO: Sync game2d state back to main game if needed
+        if game2d.state == "combat":
+            game2d.state = "exploring"
+
+        # 3. Handle Discrete Actions (Movement, Jump, Transitions)
+        if action in ('left', 'right', 'jump'):
+            # In tap-based input, we handle the movement directly here.
+            game2d.handle_input(action)
+
+        # 4. Render
+        ui_render(game, render_plugin)
+
+        # 5. Control Frame Rate
+        time.sleep(0.05)
 
 
 def game_loop(game: Game) -> None:
@@ -124,7 +197,7 @@ def game_loop(game: Game) -> None:
             error_messages = ""
             acted = game.execute_action(cmd)
             if "failed" in (acted or "").lower() and "Traceback (most recent call last):" in (acted or ""):
-                error_messages = acted # capture traceback lines
+                error_messages = acted  # capture traceback lines
                 game_messages = ["An error occurred during that action."]
 
             if "Inventory:" in (acted or ""):
@@ -229,15 +302,24 @@ def main(argv: List[str]) -> int:
             return 1
         return run_game(Game.from_dict(loaded))
 
-    # New game
-    size = prompt_map_size()
     tileset = JsonLoader().load("data/tileset.json")
+
+    if choice == "2d":
+        size = prompt_map_size(("5", "10", "15", "20"))
+        game_2d = Game2DPlugin(size, 10, 6)
+        game = Game.new_random(size=size, tileset=tileset, flat=True)
+        return run_game(game, game_2d)
+    else:
+        # New game
+        size = prompt_map_size()
+
     return run_game(Game.new_random(size=size, tileset=tileset))
 
 
 game_ref: Game = None
 
-def run_game(game: Game) -> int:
+
+def run_game(game: Game, game2d: Game2DPlugin = None) -> int:
     global game_ref
     game.data_loader = JsonLoader()
     game.ascii_loader = TextLoader("data/rooms")
@@ -247,8 +329,19 @@ def run_game(game: Game) -> int:
     game.load_fn = load_game
     game.event_manager.subscribe(on_event)
     game_ref = game
-    game_loop(game)
+    if game2d is not None:
+        game2d.event_manager.subscribe(on_2d_event)
+        game2d_loop(game, game2d)
+    else:
+        game_loop(game)
     return 0
+
+
+def on_2d_event(event: GameEvent) -> None:
+    global game_ref
+    if event.event_type == EVENT_ROOM_ENTERED:
+        game_ref.warp_to_tile(event.payload['index'], 0, "moved")
+    pass
 
 
 def on_event(event: GameEvent) -> None:

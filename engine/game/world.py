@@ -105,7 +105,7 @@ class World:
         }
 
     @staticmethod
-    def generate_random(size: int, tileset: dict, seed: int = None) -> "World":
+    def generate_random(size: int, tileset: dict, seed: int = None, flat: bool = False) -> "World":
         if tileset is None:
             tileset = World._default_tileset()
         # Create a world centered on a safe village, increasing danger with distance
@@ -123,6 +123,9 @@ class World:
         cx = width // 2
         cy = height // 2
         grid: list = []
+
+        if flat:
+            height = 1
 
         for y in range(height):
             row: list = []

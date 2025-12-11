@@ -4,15 +4,35 @@ import random
 import time
 
 try:
+
     from engine.game.enemy import Enemy as EnemyModel
+    from engine.game.event import EventManager, GameEvent
 except ImportError:
     class EnemyModel:
         def __init__(self, **kwargs):
             self.__dict__.update(kwargs)
 
+
+    class GameEvent:
+        def __init__(self, event_type, data=None):
+            self.event_type = event_type
+            self.data = data or {}
+
+
+    class EventManager:
+        def __init__(self):
+            pass
+
+        def emit(self, event: GameEvent):
+            pass
+
 # --- Global Input State Buffer ---
 # Not used in the tap-based model, but kept for clarity.
 LAST_MOVEMENT_ACTION = None
+
+EVENT_ROOM_ENTERED = "room_entered"
+EVENT_ENTER_COMBAT = "enter_combat"
+
 
 # --- Utility Function ---
 def is_passable(grid, x, y):
@@ -23,10 +43,12 @@ def is_passable(grid, x, y):
         return grid[y][x] in (".", "D")
     return False
 
+
 # --- Core Game Classes ---
 
 class Room2D:
-    def __init__(self, room_id, width=15, height=8, has_door_up=False, has_door_down=False, has_door_left=True, has_door_right=True, enemies=None):
+    def __init__(self, room_id, width=15, height=8, has_door_up=False, has_door_down=False, has_door_left=True,
+                 has_door_right=True, enemies=None):
         self.room_id = room_id
         self.width = width
         self.height = height
@@ -37,11 +59,11 @@ class Room2D:
         self.has_door_right = has_door_right
 
         self.grid = [["." for _ in range(width)] for _ in range(height)]
-        self.platforms = set() # Use a set for faster lookup
-        self.doors = {} # Store door type and position: {'up': (x, y), ...}
+        self.platforms = set()  # Use a set for faster lookup
+        self.doors = {}  # Store door type and position: {'up': (x, y), ...}
         self.enemies = enemies or []
         self.player_start_x = 1
-        self.player_start_y = height - 2 # Start just above the ground/platform
+        self.player_start_y = height - 2  # Start just above the ground/platform
 
         self.generate_room()
 
@@ -82,18 +104,17 @@ class Room2D:
             last_platform_x = new_x_start + length // 2
             last_platform_y = new_y
 
-
         # 3. Place doors (Doors placed in walls/boundaries)
         self.doors = {}
         # Left Door
         if self.has_door_left:
             y = self.height // 2
-            self.grid[y][0] = "<" # Left door symbol
+            self.grid[y][0] = "<"  # Left door symbol
             self.doors['left'] = (0, y)
         # Right Door
         if self.has_door_right:
             y = self.height // 2
-            self.grid[y][self.width - 1] = ">" # Right door symbol
+            self.grid[y][self.width - 1] = ">"  # Right door symbol
             self.doors['right'] = (self.width - 1, y)
         # Up/Down Doors (Unused in linear room movement, but kept for future)
         if self.has_door_up:
@@ -126,7 +147,6 @@ class Room2D:
                 enemy.x = random.randint(1, self.width - 2)
                 enemy.y = self.height - 2
 
-
     def spawn_enemies(self, enemy_archetypes, player_level):
         """Creates new enemies for the room."""
         self.enemies = [
@@ -140,24 +160,26 @@ class Room2D:
                 defense=1 + player_level // 2,
                 xp_reward=5 + player_level,
                 gold_reward=3 + player_level,
-                direction=random.choice([-1, 1]) # Added direction for enemy movement
+                direction=random.choice([-1, 1])  # Added direction for enemy movement
             )
             for _ in range(random.randint(1, 3))
         ]
-        self.place_enemies() # Only place enemies, don't regenerate entire room
+        self.place_enemies()  # Only place enemies, don't regenerate entire room
+
 
 class Player2D:
     def __init__(self, x, y):
-        self.x = float(x) # Store as float for physics
-        self.y = float(y) # Store as float for physics
-        self.dx = 0.0 # Horizontal velocity (not used in tap-based model)
-        self.dy = 0.0 # Vertical velocity
+        self.x = float(x)  # Store as float for physics
+        self.y = float(y)  # Store as float for physics
+        self.dx = 0.0  # Horizontal velocity (not used in tap-based model)
+        self.dy = 0.0  # Vertical velocity
         self.speed = 1.0
         self.is_jumping = False
 
 
 class Game2DPlugin:
-    def __init__(self, num_rooms=3, room_width=15, room_height=8, enemy_archetypes=None, player_level=1, gravity_pull=0.20, terminal_velocity=3.0):
+    def __init__(self, num_rooms=3, room_width=15, room_height=8, enemy_archetypes=None, player_level=1,
+                 gravity_pull=0.20, terminal_velocity=3.0):
         self.rooms = []
         self.num_rooms = num_rooms
         self.current_room_idx = 0
@@ -167,7 +189,7 @@ class Game2DPlugin:
         # Physics properties
         self.gravity_pull = gravity_pull
         self.terminal_velocity = terminal_velocity
-        self.jump_velocity = 2.0 # Fixed jump speed
+        self.jump_velocity = 2.0  # Fixed jump speed
         self.enemy_speed_divider = 7
         self.enemy_move_counter = 0
 
@@ -177,6 +199,8 @@ class Game2DPlugin:
         start_room = self.rooms[0]
         self.player = Player2D(start_room.player_start_x, start_room.player_start_y)
         self.state = "exploring"  # 'exploring', 'combat', 'game_over', 'win'
+        self.combat_enemy = None
+        self.event_manager = EventManager()
 
     def _generate_rooms(self, num_rooms, width, height):
         for i in range(num_rooms):
@@ -209,7 +233,7 @@ class Game2DPlugin:
         if action == "jump":
             # Check if player is on a platform/ground before jumping
             if (player_x_int_old, player_y_int + 1) in room.platforms:
-                self.player.dy = -self.jump_velocity # Set upward velocity
+                self.player.dy = -self.jump_velocity  # Set upward velocity
                 self.player.is_jumping = True
                 return
 
@@ -236,6 +260,7 @@ class Game2DPlugin:
             if door_x_left is not None and player_x_int_for_door_check < door_x_left and self.current_room_idx > 0:
                 self.current_room_idx -= 1
                 new_room = self.get_current_room()
+                self.event_manager.emit(GameEvent(EVENT_ROOM_ENTERED, {"room_id": new_room.room_id, "index": self.current_room_idx}))
                 # Set player start position in the new room at the entry door
                 self.player.x = float(new_room.width - 1)
 
@@ -244,6 +269,7 @@ class Game2DPlugin:
             if door_x_right is not None and player_x_int_for_door_check > door_x_right and self.current_room_idx < self.num_rooms - 1:
                 self.current_room_idx += 1
                 new_room = self.get_current_room()
+                self.event_manager.emit(GameEvent(EVENT_ROOM_ENTERED, {"room_id": new_room.room_id, "index": self.current_room_idx}))
                 # Set player start position in the new room at the entry door
                 self.player.x = 0.0
 
@@ -261,7 +287,7 @@ class Game2DPlugin:
 
         # 1. Apply gravity/jump velocity to Y position
         if self.player.dy < self.terminal_velocity:
-            self.player.dy += self.gravity_pull # Gravity pulls player down
+            self.player.dy += self.gravity_pull  # Gravity pulls player down
 
         new_y = self.player.y + self.player.dy
         y_start = round(self.player.y)
@@ -277,12 +303,12 @@ class Game2DPlugin:
 
         if next_platform_y != -1:
             # Landed on a platform
-            self.player.y = float(next_platform_y - 1) # Place player just above the platform
+            self.player.y = float(next_platform_y - 1)  # Place player just above the platform
             self.player.dy = 0.0
             self.player.is_jumping = False
         elif new_y >= room.height - 1:
             # Hit the ground
-            self.player.y = float(room.height - 2) # Place player just above the ground block
+            self.player.y = float(room.height - 2)  # Place player just above the ground block
             self.player.dy = 0.0
             self.player.is_jumping = False
         else:
@@ -312,7 +338,9 @@ class Game2DPlugin:
         for enemy in room.enemies:
             # Collision detected: Player and enemy occupy the same space
             if player_x_int == enemy.x and round(self.player.y) == enemy.y:
-                #self.state = "combat"
+                self.state = "combat"
+                self.combat_enemy = enemy
+                self.event_manager.emit(GameEvent(EVENT_ENTER_COMBAT, {"enemy_name": enemy.name}))
                 break
 
         return self.get_state()
@@ -329,6 +357,7 @@ class Game2DPlugin:
             "enemies": [{"name": e.name, "hp": e.hp, "x": e.x, "y": e.y} for e in room.enemies],
             "state": self.state
         }
+
 
 # --- 4x4 Character Definitions (Pixel Art Maps) ---
 CHAR_MAP = {
@@ -390,8 +419,9 @@ FALLBACK_MAP = [
     "????"
 ]
 
-# Demo rendering function
-def render_room(room, player, state):
+
+# Ascii rendering function
+def render_room(room, player):
     """
     Render the room as high-resolution ASCII art using 4x4 blocks per grid cell.
     """
@@ -426,18 +456,22 @@ def render_room(room, player, state):
             rendered_output.append("".join(line_parts))
 
     # Print the final output
-    print("\n".join(rendered_output))
-    print("-" * (room.width * 4)) # Separator line based on the rendered width
-    print(f"Room: {room.room_id} | Player @ ({player_x}, {player_y}) | State: {state}")
+    return "\n".join(rendered_output)
 
-def render_minimap(plugin):
+
+def print_details(room, player, state):
+    print("-" * (room.width * 4))  # Separator line based on the rendered width
+    print(f"Room: {room.room_id} | Player @ ({player.x}, {player.y}) | State: {state}")
+
+
+def print_minimap(plugin):
     """
     Renders a simple linear minimap of the rooms.
     """
     map_parts = []
     # Use width to calculate padding for centering the map roughly
     room_width_chars = plugin.get_current_room().width * 4
-    map_width = plugin.num_rooms * 3 # 3 characters per room: [, @, ]
+    map_width = plugin.num_rooms * 3  # 3 characters per room: [, @, ]
     padding = max(0, (room_width_chars - map_width) // 2)
 
     for i in range(plugin.num_rooms):
@@ -449,55 +483,7 @@ def render_minimap(plugin):
     print(" " * padding + "Minimap: " + "".join(map_parts))
 
 
-# --- Main function using tty/termios for non-blocking input ---
-def main():
-    # --- FIX: Move essential imports to the top of main() ---
-    import os
-    import sys
-    import tty
-    import termios
-    import select # CRITICAL: This was causing the NameError previously
-    # -------------------------
-
-    # --- Setup: Save terminal settings ---
-    try:
-        ORIGINAL_TERMIOS_SETTINGS = termios.tcgetattr(sys.stdin)
-    except termios.error:
-        print("Warning: Standard input is not a TTY. Cannot run interactive demo.")
-        return
-
-    # --- Function to Read a Single Key Press (Non-Blocking) ---
-    def get_single_key():
-        """Reads a single character from stdin instantly."""
-        try:
-            # Check if there is data waiting to be read
-            # select is now guaranteed to be defined
-            if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
-                return sys.stdin.read(1)
-        except Exception:
-            pass
-        return None
-
-    # 1. Initialize the game
-    plugin = Game2DPlugin(num_rooms=3, room_width=15, room_height=8)
-    clear_command = "cls" if os.name == "nt" else "clear"
-
-    print("--- 2D Platformer Game (Terminal Raw Mode) ---")
-    print("Controls: a/d or Arrows (Move), w/space or Up Arrow (Jump), q (Quit)")
-
-    # 2. Set terminal to raw mode
-    try:
-        tty.setcbreak(sys.stdin)
-    except termios.error as e:
-        print(f"Error setting terminal mode: {e}. Check if you are running in a restricted environment.")
-        # Restore original settings before exit
-        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, ORIGINAL_TERMIOS_SETTINGS)
-        return
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
-        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, ORIGINAL_TERMIOS_SETTINGS)
-        return
-
+class TerminalInputHandler:
     # Map keys to actions
     KEY_ACTION_MAP = {
         'a': 'left',
@@ -506,37 +492,100 @@ def main():
         ' ': 'jump',
         'q': 'quit',
         # Arrow keys (escape sequences)
-        '\x1b[D': 'left',   # Left arrow
+        '\x1b[D': 'left',  # Left arrow
         '\x1b[C': 'right',  # Right arrow
-        '\x1b[A': 'jump',   # Up arrow
+        '\x1b[A': 'jump',  # Up arrow
     }
+
+    def __init__(self):
+        import termios
+        import sys
+        import tty
+        self.ORIGINAL_TERMIOS_SETTINGS = termios.tcgetattr(sys.stdin)
+        try:
+            tty.setcbreak(sys.stdin)
+        except termios.error as e:
+            print(f"Error setting terminal mode: {e}. Check if you are running in a restricted environment.")
+            # Restore original settings before exit
+            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.ORIGINAL_TERMIOS_SETTINGS)
+            return
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.ORIGINAL_TERMIOS_SETTINGS)
+            return
+
+    def restore(self):
+        import termios
+        import sys
+        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.ORIGINAL_TERMIOS_SETTINGS)
+
+    def get_single_key(self):
+        import sys
+        import select
+        """Reads a single character from stdin instantly."""
+        try:
+            if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
+                return sys.stdin.read(1)
+        except Exception:
+            pass
+        return None
+
+    def get_input(self):
+        import sys
+        import select
+
+        action = None
+        key = self.get_single_key()
+
+        if key is not None:
+            # --- FIX: Restore Multi-character escape sequence (Arrow Keys) Logic ---
+            # Check for the start of an escape sequence
+            if key == '\x1b':
+                # Read up to 2 more characters to get the full sequence (e.g., \x1b[D)
+                if sys.stdin in select.select([sys.stdin], [], [], 0.01)[0]:
+                    key += sys.stdin.read(1)
+                    if sys.stdin in select.select([sys.stdin], [], [], 0.01)[0]:
+                        key += sys.stdin.read(1)
+            # --- END Arrow Key Logic ---
+
+            if key in self.KEY_ACTION_MAP:
+                action = self.KEY_ACTION_MAP[key]
+
+        return action
+
+    def get_controls(self):
+        return "Controls: a/d or Arrows (Move), w/space or Up Arrow (Jump), q (Quit)"
+
+    def print_controls(self):
+        print(self.get_controls())
+
+
+# --- Main function using tty/termios for non-blocking input ---
+def main():
+    import os
+    terminal_input = TerminalInputHandler()
+
+    # 1. Initialize the game
+    plugin = Game2DPlugin(num_rooms=3, room_width=15, room_height=8)
+    clear_command = "cls" if os.name == "nt" else "clear"
+
+    print("--- 2D Platformer Game (Terminal Raw Mode) ---")
+    terminal_input.print_controls()
 
     try:
         while plugin.state not in ("game_over", "win"):
             # 1. Process Input (Non-blocking check)
-            action = None
-            key = get_single_key()
+            action = terminal_input.get_input()
 
-            if key is not None:
-                # --- FIX: Restore Multi-character escape sequence (Arrow Keys) Logic ---
-                # Check for the start of an escape sequence
-                if key == '\x1b':
-                    # Read up to 2 more characters to get the full sequence (e.g., \x1b[D)
-                    if sys.stdin in select.select([sys.stdin], [], [], 0.01)[0]:
-                        key += sys.stdin.read(1)
-                        if sys.stdin in select.select([sys.stdin], [], [], 0.01)[0]:
-                            key += sys.stdin.read(1)
-                # --- END Arrow Key Logic ---
-
-                if key in KEY_ACTION_MAP:
-                    action = KEY_ACTION_MAP[key]
-
-                # Handle quit immediately
-                if action == 'quit':
-                    break
+            # Handle quit immediately
+            if action == 'quit':
+                break
 
             # 2. Update Game State (Applies physics/gravity)
             plugin.update()
+
+            if plugin.state == "combat":
+                plugin.state = "exploring"
 
             # 3. Handle Discrete Actions (Movement, Jump, Transitions)
             if action in ('left', 'right', 'jump'):
@@ -548,8 +597,9 @@ def main():
             current_state_data = plugin.get_state()
             current_room = plugin.get_current_room()
 
-            render_room(current_room, plugin.player, current_state_data["state"])
-            render_minimap(plugin)
+            print(render_room(current_room, plugin.player))
+            print_details(current_room, plugin.player, current_state_data["state"])
+            print_minimap(plugin)
 
             # 5. Control Frame Rate
             time.sleep(0.05)
@@ -558,7 +608,7 @@ def main():
         print(f"\nAn error occurred during the game loop: {e}")
     finally:
         # 6. Restore Terminal Settings (CRITICAL)
-        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, ORIGINAL_TERMIOS_SETTINGS)
+        terminal_input.restore()
 
     # Final messages
     os.system(clear_command)
@@ -567,8 +617,9 @@ def main():
     final_state = plugin.get_state()["state"]
     final_room = plugin.get_current_room()
 
-    render_room(final_room, plugin.player, final_state)
-    render_minimap(plugin) # Render minimap one last time
+    print(render_room(final_room, plugin.player))
+    print_details(final_room, plugin.player, final_state)
+    print_minimap(plugin)  # Render minimap one last time
 
     if final_state == "win":
         print("\n✨ YOU WIN! ✨")
@@ -577,11 +628,14 @@ def main():
     else:
         print("\nGame Over!")
 
+
 if __name__ == "__main__":
     # Ensure MockEnemy is defined if running standalone
     class MockEnemy:
         def __init__(self, **kwargs):
             self.__dict__.update(kwargs)
+
+
     try:
         from engine.game.enemy import Enemy as EnemyModel
     except ImportError:

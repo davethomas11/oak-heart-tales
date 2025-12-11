@@ -61,8 +61,8 @@ class Game:
         return self.world.get_tile(self.x, self.y)
 
     @staticmethod
-    def new_random(size: int, tileset: dict, seed: int = None) -> "Game":
-        w = World.generate_random(size, tileset, seed)
+    def new_random(size: int, tileset: dict, seed: int = None, flat: bool = False) -> "Game":
+        w = World.generate_random(size, tileset, seed, flat)
         # Start in center
         cx = w.width // 2
         cy = w.height // 2
@@ -147,6 +147,22 @@ class Game:
             return response
         else:
             return "No question pending."
+
+    def warp_to_tile(self, nx:int, ny:int, move_type="warped"):
+        self._mark_explored(self.x, self.y)
+        dest_tile = self.world.get_tile(nx, ny)
+        cur_tile = self.current_tile()
+        cur_tile.rested = False  # reset rested status on leaving
+        self.event_manager.emit(GameEvent(GameEvent.MOVED, {
+            "message": f"Player f{move_type} to ({nx},{ny}) - {dest_tile.name} from ({self.x},{self.y}){cur_tile.name}.",
+            "to": (nx, ny),
+            "from": (self.x, self.y),
+            "tile_name": dest_tile.name
+        }))
+        self.x, self.y = nx, ny
+        # mark explored when arriving
+        self._mark_explored(self.x, self.y)
+
 
     def move(self, dx: int, dy: int, ask: bool) -> str:
         self.log.add_entry(f"Attempting to move from ({self.x},{self.y}) by delta ({dx},{dy})")

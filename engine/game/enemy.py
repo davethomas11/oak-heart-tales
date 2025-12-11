@@ -11,6 +11,7 @@ class Enemy:
             defense: int,
             xp_reward: int,
             gold_reward: int,
+            direction: int = 0,
     ):
         self.name = name
         self.ascii = ascii
@@ -21,6 +22,7 @@ class Enemy:
         self.defense = defense
         self.xp_reward = xp_reward
         self.gold_reward = gold_reward
+        self.direction = direction
 
     def is_alive(self) -> bool:
         return self.hp > 0
