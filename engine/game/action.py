@@ -69,14 +69,16 @@ class _Actions:
                 ]
             )
             # Spells known/affordable become actions
+            index = 0
             for sp in g.player.known_spells:
                 if sp in SPELLS:
+                    index += 1
                     cost = int(SPELLS[sp]["mp"])
                     actions.append(
                         Action(
                             id=f"cast::{sp.lower()}",
                             label=f"Cast {sp} (MP {cost})",
-                            hotkeys=[f"cast {sp}".lower()],
+                            hotkeys=[f"cast {sp}".lower(), f"{index}"],
                             category="combat",
                             enabled=g.player.mp >= cost,
                             reason=None if g.player.mp >= cost else "Not enough MP",
@@ -192,9 +194,9 @@ class _Actions:
                     Action("look", "Look", ["look", "l"], "info"),
                     Action("map", "Map", ["map", "m"], "info"),
                     Action("stats", "Stats", ["stats", "character", "c"], "info"),
-                    Action("spells", "Spells", ["spells", "spellbook", "sp"], "info"),
+                    Action("spells", "Spells", ["spells", "spellbook", "b"], "info"),
                     Action("rest", "Rest", ["rest", "r"], "camp"),
-                    Action("shop", "Shop", ["shop"], "town", bool(getattr(g.current_tile(), "shop", False)),
+                    Action("shop", "Shop", ["shop", "o"], "town", bool(getattr(g.current_tile(), "shop", False)),
                            None if getattr(g.current_tile(), "shop", False) else "No merchant here"),
                     Action("inventory", "Inventory", ["inv", "inventory", "i"], "info"),
                     Action("potion", "Use Potion", ["potion", "p"], "camp"),
@@ -233,7 +235,7 @@ class _Actions:
 
         actions.extend(
             [
-                Action("save_game", "Save Game", ["save", "!"], "system"),
+                Action("save_game", "Save Game", ["save", "v", "!"], "system"),
                 Action("help", "Help", ["help", "h", "?"], "system"),
                 Action("quit_game", "Quit Game", ["quit", "q"], "system"),
                 Action("log", "Show Log", ["log", "g"], "system"),

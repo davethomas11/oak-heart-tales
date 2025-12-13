@@ -1,6 +1,5 @@
 # asciimatics_renderers/game_view.py
 
-from asciimatics.widgets import Frame, Layout, Label, TextBox, ListBox, Widget
 from asciimatics.screen import Screen
 from asciimatics.exceptions import StopApplication
 from asciimatics.event import KeyboardEvent
@@ -25,9 +24,11 @@ class GameView(Frame):
                          height,
                          width,
                          hover_focus=True,
-                         title="ASCII MUD RPG",
+                         title="Adventure Game",
                          has_border=False)
 
+        # Apply the custom theme to the Frame
+        self.set_theme("tlj256")  # Start with a base theme
         self._game = game
         self._screen = screen
         # NEW: Instantiate the combat renderer instance
@@ -87,9 +88,25 @@ class GameView(Frame):
                                 line_wrap=True,
                                 readonly=True)
         log_layout.add_widget(self._log_box)
+        self.logs=[]
+        self._result_desc = None
+
+        game.event_manager.subscribe(self._log_event_handler)
 
         # 3. Finalize the layout
         self.fix()
+
+    def _log_event_handler(self, event):
+        """Handles log events from the game event manager."""
+        if event.event_type == "info":
+            information = event.payload.get("information")
+            self.logs.append(information)
+        if event.payload.get("message"):
+            message = event.payload.get("message")
+            self.logs.append(message)
+        # Keep log size manageable
+        if len(self.logs) > 100:
+            self.logs = self.logs[-100:]
 
     def _check_and_show_popups(self, frame_no):
         """Checks game state and displays appropriate PopUpDialogs."""
@@ -146,7 +163,7 @@ class GameView(Frame):
     def _reset_focus_and_flags(self, selected_button):
         """Helper to re-focus the frame after a dialog closes."""
         # Ensure focus returns to the main frame after the pop-up
-        self.switch_focus(self)
+        self.switch_focus(self, 0,0)
         # Any other global flags can be reset here if needed
 
     def update(self, frame_no):
@@ -235,13 +252,7 @@ class GameView(Frame):
         self._action_list.options = action_options
 
         # 4. Update Log
-        # Use getattr for safe access to combat_log or game_messages (which were global in original)
-        if self._game.state == GameState.COMBAT: #
-            log_content = getattr(self._game, 'combat_log', ["Log: Combat log not available."])
-        else:
-            log_content = getattr(self._game, 'game_messages', ["Log: Game messages not available."])
-
-        self._log_box.value = self._result_desc if hasattr(self, '_result_desc') else "\n".join(log_content)
+        self._log_box.value = self._result_desc if self._result_desc else "\n".join(self.logs)
 
         super().update(frame_no)
 
@@ -257,7 +268,11 @@ class GameView(Frame):
             except ValueError:
                 char = ''
 
-            self._result_desc = self._game.execute_action(char)
+            result = self._game.execute_action(char)
+            if "failed" in (result or "").lower() and "Traceback (most recent call last):" in (result or ""):
+                self._result_desc = result
+            else:
+                self._result_desc = None
 
         # Check if a dialog is active; if so, pass event to parent for dialog handling
         if self._scene and self._scene.effects:

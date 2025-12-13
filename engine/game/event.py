@@ -31,6 +31,7 @@ class GameEvent:
     CANT_REST = "cant_rest"
     REST_INTERRUPTED = "rest_interrupted"
     LEVEL_UP = "level_up"
+    INFO = "info"
 
     def __init__(self, event_type: str, payload: dict = None):
         self.event_type = event_type

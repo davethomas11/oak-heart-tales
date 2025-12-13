@@ -103,6 +103,7 @@ def main_loop(screen: Screen, game: Game) -> None:
     # Initialize game services
     game.data_loader = JsonLoader()
     game.ascii_loader = TextLoader("data/rooms")
+    game.ascii_tiles = False
     game.load_configurations("data/enemies.json")
     game.save_file = SAVE_FILE
     game.save_fn = save_game

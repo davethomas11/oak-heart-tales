@@ -25,27 +25,31 @@ from text_loader import TextLoader
 from text_ui import print_game_ui
 from engine.plugins.game2d import (Game2DPlugin, render_room as render_room_2d, EVENT_ROOM_ENTERED, EVENT_ENTER_COMBAT)
 from engine.plugins.combat_renderer_2d import ASCIICombatRenderer
+from engine.plugins.question_renderer import ASCIIQuestionRenderer
 from engine.plugins.terminal_input_handler import TerminalInputHandler, Controls, default_controls
 
 combat_renderer = ASCIICombatRenderer()
-last_event: GameEvent = None
+last_animatable_event: GameEvent = None
 game_messages = []
 error_messages = ""
 combat_log = []
 
 
 class RenderPlugin:
-    def __init__(self, render_fn, actions_fn=None, combat_fn=None, shop_fn=None):
+    def __init__(self, render_fn, actions_fn=None, combat_fn=None, shop_fn=None, question_fn=None):
         self.render_fn = render_fn
         self.actions_fn = actions_fn
         self.combat_fn = combat_fn
         self.shop_fn = shop_fn
+        self.question_fn = None
 
     def get_art(self, game_state: str) -> tuple[str, list]:
         if game_state == GameState.COMBAT and self.combat_fn is not None:
             room_art = self.combat_fn()
         elif game_state == GameState.SHOP and self.shop_fn is not None:
             room_art = self.shop_fn()
+        elif game_state == GameState.ASKING_QUESTION and self.question_fn is not None:
+            room_art = self.question_fn()
         else:
             room_art = self.render_fn()
 
@@ -157,10 +161,25 @@ def prompt_map_size(options=("3", "5", "7", "9")) -> int:
             return int(s)
         print("Invalid size. Choose " + ", ".join(options) + ".")
 
+def finish_combat_animations_2d() -> None:
+    # Finish combat screen before end animation
+    if last_animatable_event is not None and last_animatable_event.event_type == GameEvent.EXITED_COMBAT:
+        render_plugin = RenderPlugin(
+            render_fn=lambda: game_ref.look(),
+            actions_fn=lambda: "",
+            combat_fn=lambda: combat_renderer.combat_fn(game_ref, combat_log),
+            shop_fn=lambda: "",
+        )
+        ui_render(game_ref, render_plugin)
+        while combat_renderer.is_animating():
+            combat_renderer.update(game_ref)
+            ui_render(game_ref, render_plugin)
+            time.sleep(0.05)
+        time.sleep(.5)
 
 def game2d_loop(game: Game, game2d: Game2DPlugin) -> None:
     global game_messages
-    global last_event
+    global last_animatable_event
     global combat_log
     global error_messages
 
@@ -225,7 +244,6 @@ def game2d_loop(game: Game, game2d: Game2DPlugin) -> None:
                 terminal_input.clear_modifiers()
 
         if game.state == GameState.COMBAT:
-            animated_events()
             if not combat_renderer.is_animating():
                 terminal_input.controls = combat_controls
                 terminal_input.clear_modifiers()
@@ -235,6 +253,7 @@ def game2d_loop(game: Game, game2d: Game2DPlugin) -> None:
                     break
                 if action is not None:
                     game_update(game, action)
+            animated_events()
             combat_renderer.update(game)
 
         if game.state == GameState.SHOP:
@@ -255,6 +274,8 @@ def game2d_loop(game: Game, game2d: Game2DPlugin) -> None:
                 game_update(game, action)
 
         if game.state == GameState.ASKING_QUESTION:
+            question_renderer = ASCIIQuestionRenderer("weapon_find" if game.pending_weapon else "generic", 90)
+            render_plugin.question_fn = lambda: question_renderer.question_fn()
             terminal_input.controls = Controls(
                 mapping={
                     'y': 'yes',
@@ -269,8 +290,10 @@ def game2d_loop(game: Game, game2d: Game2DPlugin) -> None:
                 break
             if action is not None:
                 game_update(game, action)
+            ui_render(game, render_plugin)
 
         if game.state == GameState.GAME_OVER:
+            combat_renderer.clear_animation_queue()
             terminal_input.restore()
             game_over_options(game)
 
@@ -283,9 +306,12 @@ def game2d_loop(game: Game, game2d: Game2DPlugin) -> None:
 
 def game_loop(game: Game) -> None:
     """Main interactive loop. On death, allow Load or Restart instead of hard exit."""
+    game_update(game)
+
     while not game.ended and game.player.is_alive():
         cmd = get_user_input()
         game_update(game, cmd)
+        animated_events()
         if game.ended:
             break
     if not game.player.is_alive():
@@ -297,16 +323,16 @@ def get_user_input() -> str | None:
     except (EOFError, KeyboardInterrupt):
         print("\nGoodbye.")
 
-def game_update(game: Game, cmd: str | None) -> None:
+def game_update(game: Game, cmd: str | None = None) -> None:
     global combat_log
     global error_messages
-    global last_event
+    global last_animatable_event
     global game_messages
 
     # Start or resume session
     game.available_actions()
     ui_render(game)
-    if game.player.is_alive():
+    if game.player.is_alive() and cmd is not None:
 
         # First, try the decoupled actions API so any interface can drive the game
         error_messages = ""
@@ -326,8 +352,6 @@ def game_update(game: Game, cmd: str | None) -> None:
 
         if len(game_messages) > 3:
             game_messages = game_messages[-3:]
-
-        animated_events()
 
         if acted is not None:
             ui_render(game)
@@ -375,23 +399,23 @@ def game_over_options(game: Game) -> None:
 
 
 def animated_events() -> None:
-    global last_event
-    if last_event is not None:
-        if last_event.event_type == GameEvent.EXITED_COMBAT:
+    global last_animatable_event
+    if last_animatable_event is not None:
+        if last_animatable_event.event_type == GameEvent.EXITED_COMBAT:
             # Show animated end of combat summary
             clear_screen()
-            show_battle_result(last_event.payload, game_ref.player.level)
+            show_battle_result(last_animatable_event.payload, game_ref.player.level)
             wait_keypress("Press any key to continue...")
-        if (last_event.event_type == GameEvent.RESTED or
-                last_event.event_type == GameEvent.REST_INTERRUPTED):
-            show_rest_event(last_event.payload, width=90)
+        if (last_animatable_event.event_type == GameEvent.RESTED or
+                last_animatable_event.event_type == GameEvent.REST_INTERRUPTED):
+            show_rest_event(last_animatable_event.payload, width=90)
             wait_keypress("Press any key to continue...")
-        if last_event.event_type == GameEvent.ENTERED_COMBAT:
+        if last_animatable_event.event_type == GameEvent.ENTERED_COMBAT:
             clear_screen()
-            show_combat_start_event(last_event.payload)
+            show_combat_start_event(last_animatable_event.payload)
             wait_keypress("Press any key to continue...")
 
-    last_event = None  # reset after showing
+    last_animatable_event = None  # reset after showing
 
 
 def main(argv: List[str]) -> int:
@@ -458,14 +482,24 @@ def on_2d_event(event: GameEvent) -> None:
         game_ref.enter_combat(Enemy.from_dict(event.payload['enemy']))
     pass
 
+requested_information = None
 
 def on_event(event: GameEvent) -> None:
-    global last_event
+    global last_animatable_event
     global game_messages
     global combat_log
+    global requested_information
+
     event_type = event.event_type
     data = event.payload
-    last_event = event
+    last_animatable_event = event if event_type in {GameEvent.ENTERED_COMBAT,
+                                               GameEvent.EXITED_COMBAT,
+                                               GameEvent.RESTED,
+                                               GameEvent.REST_INTERRUPTED} else last_animatable_event
+    if event_type == GameEvent.INFO:
+        requested_information = data.get('information')
+        return
+
     if event_type == GameEvent.ATTACKED:
         game_message = f"You attacked the {data.get('enemy_name')} for {data.get('damage')} damage!"
     elif event_type == GameEvent.ATTEMPT_MOVE:
@@ -524,6 +558,8 @@ def on_event(event: GameEvent) -> None:
         game_message = f"Combat started with {data.get('enemy_name')}!"
     elif event_type == GameEvent.EXITED_COMBAT:
         if game_ref_2d is not None:
+            if not data.get('fled'):
+                finish_combat_animations_2d()
             game_ref_2d.remove_battle_enemy()
         if data.get('victory'):
             game_message = (f"You defeated {data.get('enemy_name')} and "

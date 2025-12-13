@@ -101,9 +101,17 @@ class Game:
             enabled = "" if act.get("enabled", True) else " (disabled)"
             reason = f" — {act['reason']}" if not act.get("enabled", True) and act.get("reason") else ""
             lines.append(f"  - {label}{hotkeys}{enabled}{reason}")
+        self.event_manager.emit(GameEvent(GameEvent.INFO, {
+            "information": "\n".join(lines),
+            "type": "help_text"
+        }))
         return "\n".join(lines)
 
     def get_log(self) -> str:
+        self.event_manager.emit(GameEvent(GameEvent.INFO, {
+            "information": str(self.log),
+            "type": "game_log"
+        }))
         return f"{self.log}"
 
     def save_game(self, filename: str = None) -> str:
@@ -333,11 +341,16 @@ class Game:
                 line_chars.append(ch)
             rows.append("".join(line_chars))
         title = f"Map ({self.world.width}x{self.world.height})\n@ you, . explored, $ shop, ? unknown\n"
-        return title + "\n" + "\n".join(rows)
+        map = title + "\n" + "\n".join(rows)
+        self.event_manager.emit(GameEvent(GameEvent.INFO, {
+            "information": map,
+            "type": "map_render"
+        }))
+        return map
 
     def stats(self) -> str:
         p = self.player
-        return (
+        stats = (
             f"Stats for {p.name}:\n"
             f"Lv {p.level}\n"
             f"XP: {p.xp}/{xp_to_next_level(p.level)} | Gold: {p.gold}\n"
@@ -347,6 +360,11 @@ class Game:
             f"\nLocation: ({self.x},{self.y}) - {self.current_tile().name}"
             f"\nState: {self.state}"
         )
+        self.event_manager.emit(GameEvent(GameEvent.INFO, {
+            "information": stats,
+            "type": "player_stats"
+        }))
+        return stats
 
     def spells(self) -> str:
         p = self.player
@@ -358,7 +376,12 @@ class Game:
                 lines.append(f" - {sp} (MP {SPELLS[sp]['mp']}) [pow {SPELLS[sp]['pow']}]: {SPELLS[sp]['desc']}")
             else:
                 lines.append(f" - {sp}: (Unknown spell details)")
-        return "\n".join(lines)
+        spells = "\n".join(lines)
+        self.event_manager.emit(GameEvent(GameEvent.INFO, {
+            "information": spells,
+            "type": "player_spells"
+        }))
+        return spells
 
     def shop_exit(self) -> str:
         self.change_state(GameState.EXPLORING)
@@ -676,16 +699,6 @@ class Game:
                 notes = self.player.add_xp(max(0, int(e.xp_reward)))
                 nex_level = self.player.level
                 out_lines.extend(notes)
-                try:
-                    self._maybe_offer_weapon(f"the fallen {e.name}")
-                    if self.pending_weapon:
-                        self.event_manager.emit(GameEvent(GameEvent.FOUND_WEAPON, {
-                            "message": f"Player found weapon {self.pending_weapon} from defeated {e.name}.",
-                            "position": (self.x, self.y),
-                            "weapon": self.pending_weapon
-                        }))
-                except Exception:
-                    pass
                 self.event_manager.emit(GameEvent(GameEvent.EXITED_COMBAT, {
                     "message": "Player won combat.",
                     "position": (self.x, self.y),
@@ -697,6 +710,16 @@ class Game:
                     "xp_gained": e.xp_reward if e else 0,
                     "leveled_up": nex_level > cur_level
                 }))
+                try:
+                    self._maybe_offer_weapon(f"the fallen {e.name}")
+                    if self.pending_weapon:
+                        self.event_manager.emit(GameEvent(GameEvent.FOUND_WEAPON, {
+                            "message": f"Player found weapon {self.pending_weapon} from defeated {e.name}.",
+                            "position": (self.x, self.y),
+                            "weapon": self.pending_weapon
+                        }))
+                except Exception:
+                    pass
         else:
             self.event_manager.emit(GameEvent(GameEvent.EXITED_COMBAT, {
                 "message": "Player was defeated in combat.",
