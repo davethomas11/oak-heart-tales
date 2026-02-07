@@ -1,6 +1,8 @@
 class GameEvent:
     FOUND_WEAPON = "found_weapon"
     PICKED_UP_WEAPON = "weapon_picked_up"
+    PICKED_UP_ARMOR = "armor_picked_up"
+    LEARNED_SPELL = "learned_spell"
     LEFT_WEAPON = "weapon_left"
     ENTERED_COMBAT = "entered_combat"
     EXITED_COMBAT = "exited_combat"

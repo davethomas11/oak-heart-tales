@@ -168,5 +168,15 @@
     "base_attack": 7,
     "xp_reward": 38,
     "gold_reward": 14
+  },
+  {
+    "name": "Demon",
+    "ascii": "  (¬_¬)\n   /|\\\n   / \\",
+    "ascii_left": " (¬_¬ ) \n   /|\\\n     \\",
+    "base_hp": 25,
+    "base_defense": 6,
+    "base_attack": 11,
+    "xp_reward": 90,
+    "gold_reward": 50
   }
 ]

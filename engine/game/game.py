@@ -3,7 +3,7 @@ import random
 from .event import EventManager, GameEvent
 from .player import Player as PlayerModel
 from .enemy import Enemy as EnemyModel
-from .armor import Armor
+from .armor import Armor, armor_pool
 from .weapon import Weapon, weapon_pool
 from .player import Player, clamp, xp_to_next_level
 from .world import World, Tile
@@ -14,6 +14,7 @@ from .game_state import GameState
 from .action import _Actions
 from .game_log import GameLog
 from .shop import Shop
+from .character import Character, CHARACTERS
 
 
 class Game:
@@ -42,6 +43,7 @@ class Game:
         self.question = ""
         self.pending_weapon = None
         self.pending_move = None
+        self.pending_character_question = None
         self.ended = False
         self.log = GameLog()
         self.shop_items = None
@@ -143,6 +145,31 @@ class Game:
     def execute_question(self, answer: bool) -> str:
         if self.state != GameState.ASKING_QUESTION:
             return "No question pending."
+        if self.pending_character_question:
+            action = self.pending_character_question.get("action")
+            character_name = self.pending_character_question.get("character", "Unknown")
+            question_type = self.pending_character_question.get("type", "unknown")
+            item = self.pending_character_question.get("item", None)
+            if action:
+                action(answer)
+                if answer:
+                    response = f"You chose to accept the offer from {character_name}."
+                    if question_type == "weapon_find" and item:
+                        self.event_manager.emit(GameEvent(GameEvent.PICKED_UP_WEAPON, {"weapon": item.to_dict()}))
+                    elif question_type == "armor_find" and item:
+                        self.event_manager.emit(GameEvent(GameEvent.PICKED_UP_ARMOR, {"armor": item.to_dict()}))
+                    elif question_type == "spell_learn":
+                        self.event_manager.emit(GameEvent(GameEvent.LEARNED_SPELL, {
+                            "spell": self.pending_character_question.get("spell", "unknown"),
+                            "character": character_name
+                        }))
+                else:
+                    response = f"You declined the offer from {character_name}."
+            else:
+                response = "No action defined for this question."
+            self.pending_character_question = None
+            self.change_state(GameState.EXPLORING)
+            return response
         if self.pending_move:
             return self.execute_pending_move(answer)
         if self.pending_weapon:
@@ -255,10 +282,30 @@ class Game:
         # Roll encounter -> switch to action-driven combat
         tile = self.current_tile()
         weather_enc_mod = tile.weather.effect().get("encounter_rate", 0.0)
-        if not tile.safe and random.random() < tile.danger + weather_enc_mod:
-            enemy = generate_enemy(self.enemy_archetypes, self.player.level, self.x, self.y)
-            intro = self.enter_combat(enemy)
-            return desc + "\n\n" + intro
+        encounter_roll = random.random()
+        encounter_chance = tile.danger + weather_enc_mod
+        character_chance = 0.15  # 15% chance to meet a character instead of enemy
+        desc = desc  # keep previous desc
+        if not tile.safe and encounter_roll < encounter_chance:
+            if random.random() < character_chance:
+                character = random.choice(CHARACTERS)
+                self.state = GameState.EXPLORING  # Stay in exploring state
+                # Interact with character
+                output = []
+                output.append(desc)
+                output.append("")
+                output.append(f"You encounter a character!")
+                output.append(character.interact(self.player))
+                if (character.question):
+                    self.change_state(GameState.ASKING_QUESTION)
+                    self.question = character.question["ask"]
+                    self.pending_character_question = character.question
+                    output.append(character.question["ask"] + " [y/N]")
+                return "\n".join(output)
+            else:
+                enemy = generate_enemy(self.enemy_archetypes, self.player.level, self.x, self.y)
+                intro = self.enter_combat(enemy)
+                return desc + "\n\n" + intro
         # Field find chance (can find gear lying around)
         try:
             found = self._maybe_field_find(tile)
